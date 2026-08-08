@@ -7,7 +7,7 @@ import type { EChartsOption } from "echarts";
 import api from "../api";
 import EChart from "../components/EChart.vue";
 import { formatMoney } from "../utils";
-import type { MonthSummary, TrendPoint, Wallet } from "../types";
+import type { Allowance, MonthSummary, TrendPoint, Wallet } from "../types";
 
 const cur = new Date();
 const month = ref(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`);
@@ -15,6 +15,7 @@ const summary = ref<MonthSummary | null>(null);
 const trend = ref<TrendPoint[]>([]);
 const wallets = ref<Wallet[]>([]);
 const monthlyText = ref("");
+const allowance = ref<Allowance | null>(null);
 
 const walletDialog = ref(false);
 const walletForm = reactive({ name: "", balance: 0 });
@@ -47,6 +48,15 @@ async function loadMonthlySummary() {
     monthlyText.value = data.text;
   } catch {
     monthlyText.value = "";
+  }
+}
+
+async function loadAllowance() {
+  try {
+    const { data } = await api.get("/allowance");
+    allowance.value = data;
+  } catch {
+    allowance.value = null;
   }
 }
 
@@ -101,6 +111,7 @@ onMounted(() => {
   load();
   loadWallets();
   loadMonthlySummary();
+  loadAllowance();
 });
 </script>
 
@@ -112,6 +123,35 @@ onMounted(() => {
       <el-button @click="$router.push('/report')">🗓️ 年度报告</el-button>
       <el-button @click="load">刷新</el-button>
     </div>
+
+    <el-card v-if="allowance && allowance.amount > 0" style="margin-bottom: 12px">
+      <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 20px">
+        <div>
+          <div class="stat-label">🎓 本月生活费</div>
+          <div class="stat-num">¥ {{ formatMoney(allowance.amount) }}</div>
+        </div>
+        <div>
+          <div class="stat-label">已花</div>
+          <div class="stat-num" style="color: var(--danger)">¥ {{ formatMoney(allowance.spent) }}</div>
+        </div>
+        <div>
+          <div class="stat-label">剩余</div>
+          <div class="stat-num" style="color: var(--success)">¥ {{ formatMoney(allowance.remaining) }}</div>
+        </div>
+        <div>
+          <div class="stat-label">日均可用（剩 {{ allowance.days_left }} 天）</div>
+          <div class="stat-num">¥ {{ formatMoney(allowance.daily_budget) }}</div>
+        </div>
+        <div style="flex: 1"></div>
+        <el-button link type="primary" @click="$router.push('/budget')">管理生活费 →</el-button>
+      </div>
+    </el-card>
+    <el-card v-else style="margin-bottom: 12px; border-style: dashed">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <span>🎓 还没设置每月生活费？设置后帮你算「钱还能撑几天」</span>
+        <el-button size="small" type="primary" @click="$router.push('/budget')">去设置</el-button>
+      </div>
+    </el-card>
 
     <h3 style="margin-bottom: 10px">💰 钱包总览</h3>
     <el-row :gutter="12" style="margin-bottom: 12px">

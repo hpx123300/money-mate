@@ -37,6 +37,15 @@ export interface Budget {
   spent: number;
 }
 
+export interface Allowance {
+  amount: number;
+  day_of_month: number;
+  spent: number;
+  remaining: number;
+  days_left: number;
+  daily_budget: number;
+}
+
 export interface CategoryStat {
   category_id: number;
   category_name: string;

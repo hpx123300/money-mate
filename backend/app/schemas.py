@@ -118,6 +118,22 @@ class BudgetRead(BaseModel):
     spent: float = 0  # 该月已支出
 
 
+class AllowanceRead(BaseModel):
+    """生活费规划（含实时计算）"""
+
+    amount: float              # 每月生活费
+    day_of_month: int          # 每月几号到账
+    spent: float = 0           # 本月已花
+    remaining: float = 0       # 本月剩余
+    days_left: int = 0         # 距离下月生活费到账还有几天
+    daily_budget: float = 0    # 日均可用 = 剩余 / 剩余天数
+
+
+class AllowanceWrite(BaseModel):
+    amount: float = Field(gt=0)
+    day_of_month: int = Field(ge=1, le=28)
+
+
 # ============ 统计 ============
 
 

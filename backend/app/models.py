@@ -60,3 +60,13 @@ class Budget(SQLModel, table=True):
     month: str = Field(index=True)  # 格式：2026-08
     amount: float = Field(default=0)
     created_at: datetime = Field(default_factory=utcnow)
+
+
+class Allowance(SQLModel, table=True):
+    """生活费设置：大学生每月生活费金额 + 到账日（每个用户一条）"""
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(index=True, unique=True, foreign_key="user.id")
+    amount: float = Field(default=0)
+    day_of_month: int = Field(default=1, ge=1, le=28)  # 每月几号到账
+    created_at: datetime = Field(default_factory=utcnow)

@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from .config import settings
 from .cache import cache
 from .database import init_db
-from .routers import auth, budget, categories, stats, transactions, wallets
+from .routers import allowances, auth, budget, categories, stats, transactions, wallets
 
 
 @asynccontextmanager
@@ -38,6 +38,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(allowances.router)
 app.include_router(categories.router)
 app.include_router(wallets.router)
 app.include_router(transactions.router)

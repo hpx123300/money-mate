@@ -4,17 +4,27 @@
 import { onMounted, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import api from "../api";
-import type { Budget } from "../types";
+import type { Allowance, Budget } from "../types";
 
 const cur = new Date();
 const month = ref(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`);
 const budget = ref<Budget | null>(null);
 const form = reactive({ amount: 0 });
+const allowance = ref<Allowance | null>(null);
+const allowanceForm = reactive({ amount: 1000, day_of_month: 1 });
 
 async function load() {
-  const { data } = await api.get(`/budget/${month.value}`);
-  budget.value = data;
-  form.amount = data.amount;
+  const [b, a] = await Promise.all([
+    api.get(`/budget/${month.value}`),
+    api.get("/allowance"),
+  ]);
+  budget.value = b.data;
+  form.amount = b.data.amount;
+  allowance.value = a.data;
+  if (a.data.amount > 0) {
+    allowanceForm.amount = a.data.amount;
+    allowanceForm.day_of_month = a.data.day_of_month;
+  }
 }
 
 async function save() {
@@ -24,6 +34,19 @@ async function save() {
   }
   await api.put(`/budget/${month.value}`, { month: month.value, amount: form.amount });
   ElMessage.success("预算已保存");
+  load();
+}
+
+async function saveAllowance() {
+  if (!allowanceForm.amount || allowanceForm.amount <= 0) {
+    ElMessage.warning("生活费金额必须大于 0");
+    return;
+  }
+  await api.put("/allowance", {
+    amount: allowanceForm.amount,
+    day_of_month: allowanceForm.day_of_month,
+  });
+  ElMessage.success("生活费设置已保存");
   load();
 }
 
@@ -71,5 +94,53 @@ onMounted(load);
         </el-card>
       </el-col>
     </el-row>
+
+    <el-card style="margin-top: 16px">
+      <h3 style="margin-bottom: 12px">🎓 生活费规划</h3>
+      <el-row :gutter="24" align="middle">
+        <el-col :xs="24" :md="8">
+          <el-form label-width="90px">
+            <el-form-item label="每月生活费">
+              <el-input-number v-model="allowanceForm.amount" :min="0" :precision="2" :step="100" style="width: 100%" />
+            </el-form-item>
+            <el-form-item label="每月到账日">
+              <el-input-number v-model="allowanceForm.day_of_month" :min="1" :max="28" style="width: 100%" />
+            </el-form-item>
+            <el-button type="primary" @click="saveAllowance">保存生活费设置</el-button>
+          </el-form>
+        </el-col>
+        <el-col :xs="24" :md="16">
+          <template v-if="allowance && allowance.amount > 0">
+            <el-row :gutter="12">
+              <el-col :xs="12" :md="6">
+                <div class="stat-label">本月生活费</div>
+                <div class="stat-num">¥ {{ allowance.amount.toFixed(2) }}</div>
+              </el-col>
+              <el-col :xs="12" :md="6">
+                <div class="stat-label">已花</div>
+                <div class="stat-num" style="color: var(--danger)">¥ {{ allowance.spent.toFixed(2) }}</div>
+              </el-col>
+              <el-col :xs="12" :md="6">
+                <div class="stat-label">剩余</div>
+                <div class="stat-num" style="color: var(--success)">¥ {{ allowance.remaining.toFixed(2) }}</div>
+              </el-col>
+              <el-col :xs="12" :md="6">
+                <div class="stat-label">日均可用（剩 {{ allowance.days_left }} 天）</div>
+                <div class="stat-num">¥ {{ allowance.daily_budget.toFixed(2) }}</div>
+              </el-col>
+            </el-row>
+            <el-alert
+              :type="allowance.remaining < 0 ? 'error' : 'success'"
+              :closable="false"
+              style="margin-top: 12px"
+              :title="allowance.remaining < 0
+                ? `生活费已超支 ¥${Math.abs(allowance.remaining).toFixed(2)}，距离下月到账还有 ${allowance.days_left} 天 😱`
+                : `距离下月生活费到账还有 ${allowance.days_left} 天，每天最多可花 ¥${allowance.daily_budget.toFixed(2)}`"
+            />
+          </template>
+          <el-alert v-else type="info" :closable="false" title="还没有设置生活费，设置后这里会自动帮你算「还能撑几天」" />
+        </el-col>
+      </el-row>
+    </el-card>
   </div>
 </template>

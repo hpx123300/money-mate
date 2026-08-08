@@ -95,7 +95,7 @@ def test_spa_fallback():
         return
     r = client.get("/dashboard")
     assert r.status_code == 200
-    assert "MoneyMate" in r.text
+    assert "记账小助手" in r.text
 
 
 def test_register_and_default_categories():
@@ -105,7 +105,8 @@ def test_register_and_default_categories():
     assert r.status_code == 200
     names = [(c["name"], c["type"]) for c in r.json()]
     assert ("餐饮", "expense") in names
-    assert ("工资", "income") in names
+    assert ("生活费", "income") in names
+    assert ("宿舍水电", "expense") in names
 
 
 def test_duplicate_register():
@@ -135,7 +136,7 @@ def test_transaction_flow():
     headers = _login(user["username"])
     cats = client.get("/api/categories", headers=headers).json()
     food = next(c for c in cats if c["name"] == "餐饮")
-    salary = next(c for c in cats if c["name"] == "工资")
+    salary = next(c for c in cats if c["name"] == "生活费")
 
     # 记支出 + 收入
     _add_expense(headers, food["id"], 25.5, "午餐")
@@ -145,7 +146,7 @@ def test_transaction_flow():
             "category_id": salary["id"],
             "amount": 3000,
             "type": "income",
-            "note": "八月工资",
+            "note": "八月生活费",
             "occurred_at": f"{CUR_MONTH}-05",
         },
         headers=headers,
@@ -323,7 +324,7 @@ def test_monthly_summary():
     headers = _login(user["username"])
     cats = client.get("/api/categories", headers=headers).json()
     food = next(c for c in cats if c["name"] == "餐饮")
-    salary = next(c for c in cats if c["name"] == "工资")
+    salary = next(c for c in cats if c["name"] == "生活费")
 
     _add_expense(headers, food["id"], 30, "奶茶")
     _add_expense(headers, food["id"], 50, "外卖")
@@ -333,7 +334,7 @@ def test_monthly_summary():
             "category_id": salary["id"],
             "amount": 3000,
             "type": "income",
-            "note": "八月工资",
+            "note": "八月生活费",
             "occurred_at": f"{CUR_MONTH}-01",
         },
         headers=headers,
@@ -353,7 +354,7 @@ def test_annual_report():
     headers = _login(user["username"])
     cats = client.get("/api/categories", headers=headers).json()
     food = next(c for c in cats if c["name"] == "餐饮")
-    salary = next(c for c in cats if c["name"] == "工资")
+    salary = next(c for c in cats if c["name"] == "生活费")
 
     # 同年 2 个月的数据 + 一笔奶茶
     for day in ("01", "15"):
@@ -374,7 +375,7 @@ def test_annual_report():
             "category_id": salary["id"],
             "amount": 5000,
             "type": "income",
-            "note": "工资",
+            "note": "生活费",
             "occurred_at": "2026-02-01",
         },
         headers=headers,
@@ -456,7 +457,7 @@ def test_stats():
     headers = _login(user["username"])
     cats = client.get("/api/categories", headers=headers).json()
     food = next(c for c in cats if c["name"] == "餐饮")
-    salary = next(c for c in cats if c["name"] == "工资")
+    salary = next(c for c in cats if c["name"] == "生活费")
     _add_expense(headers, food["id"], 25.5, "午餐")
     client.post(
         "/api/transactions",
@@ -502,7 +503,7 @@ def test_import_bill():
     csv_content = (
         "日期,类型,分类,金额,备注\n"
         "2026-08-01,支出,餐饮,25.5,午餐\n"
-        "2026-08-02,收入,工资,3000,八月工资\n"
+        "2026-08-02,收入,生活费,3000,八月生活费\n"
         "2026-08-03,支出,健身,100,办卡\n"  # 未知分类 → 归入其他支出
     )
     r = client.post(
@@ -529,7 +530,7 @@ def test_import_bill():
         for t in client.get("/api/transactions", headers=headers).json()["items"]
     }
     assert notes["午餐"] == "餐饮"
-    assert notes["八月工资"] == "工资"
+    assert notes["八月生活费"] == "生活费"
     assert notes["办卡"] == "其他支出"
 
 
@@ -558,6 +559,38 @@ def test_import_template():
     r = client.get("/api/transactions/import-template")
     assert r.status_code == 200
     assert "日期,类型,分类,金额,备注" in r.text
+
+
+def test_allowance_flow():
+    user = _register()
+    headers = _login(user["username"])
+
+    # 未设置时返回空值
+    r = client.get("/api/allowance", headers=headers)
+    assert r.status_code == 200
+    assert r.json()["amount"] == 0
+
+    # 设置生活费：每月 1 号到账 1500
+    r = client.put("/api/allowance", json={"amount": 1500, "day_of_month": 1}, headers=headers)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["amount"] == 1500
+    assert data["day_of_month"] == 1
+    assert data["days_left"] > 0
+    assert data["daily_budget"] >= 0
+
+    # 记一笔支出后，剩余和日均可用会相应减少
+    food = next(
+        c for c in client.get("/api/categories", headers=headers).json() if c["name"] == "餐饮"
+    )
+    _add_expense(headers, food["id"], 100, "先花一笔")
+    r = client.get("/api/allowance", headers=headers)
+    assert r.json()["spent"] == 100
+    assert r.json()["remaining"] == 1400
+
+    # 非法到账日
+    r = client.put("/api/allowance", json={"amount": 100, "day_of_month": 31}, headers=headers)
+    assert r.status_code == 422
 
 
 if __name__ == "__main__":

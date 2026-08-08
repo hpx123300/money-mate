@@ -24,7 +24,7 @@ function logout() {
     <el-aside width="212px" style="padding: 14px 0 14px 14px">
       <div class="glass" style="height: calc(100vh - 28px); padding: 18px 6px; display: flex; flex-direction: column">
         <div style="padding: 0 12px 16px; font-size: 19px; font-weight: 700; letter-spacing: -0.01em">
-          💰 记账小助手
+          🎓 大学生记账助手
         </div>
         <el-menu :default-active="route.path" router>
           <el-menu-item index="/dashboard">📊 仪表盘</el-menu-item>

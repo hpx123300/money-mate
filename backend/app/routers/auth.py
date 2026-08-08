@@ -15,15 +15,17 @@ router = APIRouter(prefix="/api/auth", tags=["认证"])
 # 新用户自动创建的默认分类
 DEFAULT_CATEGORIES = [
     ("餐饮", "expense"),
-    ("交通", "expense"),
+    ("外卖", "expense"),
     ("购物", "expense"),
-    ("居住", "expense"),
+    ("宿舍水电", "expense"),
+    ("交通", "expense"),
     ("娱乐", "expense"),
+    ("学习", "expense"),
     ("医疗", "expense"),
     ("其他支出", "expense"),
-    ("工资", "income"),
+    ("生活费", "income"),
     ("兼职", "income"),
-    ("理财", "income"),
+    ("奖学金", "income"),
     ("其他收入", "income"),
 ]
 
