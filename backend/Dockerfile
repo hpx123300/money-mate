@@ -1,7 +1,9 @@
 # ===== 阶段一：构建前端 =====
-FROM node:20-alpine AS frontend
+FROM node:22-alpine AS frontend
 
 WORKDIR /web
+# pnpm 在无终端环境（Docker/CI）下需要确认清理模块目录，这里声明为 CI 环境跳过确认
+ENV CI=true
 RUN corepack enable
 
 COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./

@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
 from .config import settings
+from .cache import cache
 from .database import init_db
 from .routers import auth, budget, categories, stats, transactions, wallets
 
@@ -52,7 +53,7 @@ async def unhandled_exception_handler(request, exc):
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "env": settings.app_env}
+    return {"status": "ok", "env": settings.app_env, "cache": cache.backend}
 
 
 # 前端构建产物存在时，由后端一并托管（单容器部署）

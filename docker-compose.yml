@@ -1,6 +1,8 @@
 services:
   web:
-    build: .
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: moneymate-web
     ports:
       - "8000:8000"
