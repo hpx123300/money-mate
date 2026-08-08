@@ -7,6 +7,12 @@
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![CI](https://github.com/hpx123300/money-mate/actions/workflows/ci.yml/badge.svg)
 
+## 在线体验
+
+👉 [money-mate-8vby.onrender.com](https://money-mate-8vby.onrender.com)
+
+免费部署在 Render 上（数据仅供演示，偶尔休眠唤醒需要几秒）。注册一个账号就能玩。
+
 ## 能做什么
 
 - **注册登录**：注册完自动带一套常用分类（餐饮、交通、工资那些），不用自己配
@@ -88,7 +94,7 @@ docker compose up --build
 ## 下一步计划
 
 - [ ] 补演示截图
-- [ ] 部署上线，把在线地址贴在这
+- [x] 部署上线（Render 免费托管）
 - [ ] 想加「AA 分账」功能（和朋友吃饭算钱用）
 
 ## 说明
