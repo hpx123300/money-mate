@@ -12,6 +12,7 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 class Settings:
     def __init__(self):
         self.app_env = os.getenv("APP_ENV", "dev")
+        self.seed_demo_data = os.getenv("SEED_DEMO_DATA", "").lower() in ("1", "true", "yes", "on")
         self.secret_key = os.getenv("APP_SECRET_KEY", "")
         if not self.secret_key:
             self.secret_key = secrets.token_urlsafe(32)  # 仅开发环境临时生成

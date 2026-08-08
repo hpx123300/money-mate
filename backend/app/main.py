@@ -11,11 +11,14 @@ from .config import settings
 from .cache import cache
 from .database import init_db
 from .routers import allowances, auth, budget, categories, stats, transactions, wallets
+from .seed_demo import maybe_seed_demo
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    if maybe_seed_demo():
+        print("[MoneyMate] 已初始化演示数据（demo / demo123456）")
     print(f"[MoneyMate] 启动完成 | 环境: {settings.app_env}")
     print(f"[MoneyMate] 数据库: {settings.database_url}")
     yield

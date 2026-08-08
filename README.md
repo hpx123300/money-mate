@@ -11,7 +11,14 @@
 
 👉 [money-mate-8vby.onrender.com](https://money-mate-8vby.onrender.com)
 
-免费部署在 Render 上（数据仅供演示，偶尔休眠唤醒需要几秒）。注册一个账号就能玩。
+免费部署在 Render 上（偶尔休眠唤醒需要几秒）。**演示账号：demo / demo123456**，登录就有近 4 个月的样例账单可以直接看图表。
+
+## 页面截图
+
+![登录页](docs/screenshots/login.png)
+![仪表盘](docs/screenshots/dashboard.png)
+![流水管理](docs/screenshots/transactions.png)
+![年度账单报告](docs/screenshots/report.png)
 
 ## 能做什么
 
@@ -93,8 +100,9 @@ docker compose up --build
 
 ## 下一步计划
 
-- [ ] 补演示截图
+- [x] 补演示截图
 - [x] 部署上线（Render 免费托管）
+- [x] 演示数据自动初始化（SEED_DEMO_DATA=true 时启动自动生成 demo 账号）
 - [ ] 想加「AA 分账」功能（和朋友吃饭算钱用）
 
 ## 说明
