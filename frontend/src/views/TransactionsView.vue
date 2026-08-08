@@ -24,6 +24,7 @@ const importFile = ref<File | null>(null);
 const importing = ref(false);
 const importResult = ref<ImportResult | null>(null);
 const editingId = ref<number | null>(null);
+const suggesting = ref(false);
 const form = reactive({
   type: "expense" as "income" | "expense",
   category_id: undefined as number | undefined,
@@ -71,6 +72,24 @@ async function loadWallets() {
   wallets.value = data;
   if (!form.wallet_id && wallets.value.length) {
     form.wallet_id = wallets.value[0].id;
+  }
+}
+
+async function suggestCategory() {
+  if (!form.note.trim()) {
+    ElMessage.warning("先填个备注，比如「食堂午饭」");
+    return;
+  }
+  suggesting.value = true;
+  try {
+    const { data } = await api.post("/ai/suggest-category", { note: form.note });
+    form.type = data.type;
+    form.category_id = data.category_id;
+    ElMessage.success(`AI 推荐分类：${data.category}`);
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || "AI 推荐失败，请稍后再试");
+  } finally {
+    suggesting.value = false;
   }
 }
 
@@ -264,7 +283,10 @@ onMounted(() => { load(); loadCategories(); loadWallets(); });
           <el-date-picker v-model="form.occurred_at" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
         </el-form-item>
         <el-form-item label="备注">
-          <el-input v-model="form.note" placeholder="选填" maxlength="200" />
+          <div style="display: flex; gap: 8px; width: 100%">
+            <el-input v-model="form.note" placeholder="选填" maxlength="200" />
+            <el-button :loading="suggesting" @click="suggestCategory">✨ AI 推荐</el-button>
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>

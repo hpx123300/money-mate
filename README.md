@@ -19,12 +19,18 @@
 ![仪表盘](docs/screenshots/dashboard.png)
 ![流水管理](docs/screenshots/transactions.png)
 ![年度账单报告](docs/screenshots/report.png)
+![AI 记账助手](docs/screenshots/ai-parse.png)
+![AI 智能分类](docs/screenshots/ai-suggest.png)
+![AI 月度分析](docs/screenshots/ai-summary.png)
 
 ## 能做什么
 
 - **注册登录**：注册完自动带一套常用分类（餐饮、交通、工资那些），不用自己配
 - **生活费规划**：设置每月生活费金额和到账日，自动算「已花/剩余/日均可用/还能撑几天」
 - **记一笔**：选分类、选钱包、填金额和备注
+- **AI 记账小助手**：输入「今天午饭花了 25」，自动识别金额/分类/钱包，确认一下就能入账
+- **AI 智能分类**：记账时填个备注，AI 自动推荐分类
+- **AI 月度分析**：一句话总结这个月钱花在哪、给出省钱建议
 - **多钱包**：微信、支付宝、现金分开记，余额自动帮你算
 - **分页浏览**：流水再多也不卡，翻页加载
 - **账单一键导入**：支持支付宝/微信导出的 CSV（自动识别列名、去重、分类自动匹配），也支持模板格式
@@ -37,7 +43,7 @@
 
 ## 用了什么技术
 
-后端：Python 3.12 · FastAPI · SQLModel · JWT（Argon2 加密密码）
+后端：Python 3.12 · FastAPI · SQLModel · JWT（Argon2 加密密码）· LLM 集成（DeepSeek，OpenAI 兼容可换供应商）
 
 数据库：SQLite（本地开箱即用，`DATABASE_URL` 改一行就能换 MySQL）
 
@@ -87,7 +93,7 @@ docker compose up --build
 
 ```bash
 .venv/bin/python tests/test_api.py
-# 22 通过，0 失败（接口测试）
+# 27 通过，0 失败（接口测试）
 
 # 线上冒烟测试（服务运行中执行，部署后也能用）
 .venv/bin/python tests/test_live.py
