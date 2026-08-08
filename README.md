@@ -108,7 +108,7 @@ docker compose up --build
 
 - [x] 补演示截图
 - [x] 部署上线（Render 免费托管）
-- [x] 演示数据自动初始化（SEED_DEMO_DATA=true 时启动自动生成 demo 账号）
+- [x] 演示数据自动初始化（空数据库启动时自动生成 demo 账号，测试环境除外）
 - [ ] 想加「AA 分账」功能（和朋友吃饭算钱用）
 
 ## 说明

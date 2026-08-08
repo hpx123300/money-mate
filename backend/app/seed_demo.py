@@ -170,10 +170,17 @@ def seed_demo(db: Session) -> bool:
 
 
 def maybe_seed_demo() -> bool:
-    """启动时调用：满足开关条件且无演示账号时初始化演示数据。"""
-    if not (settings.seed_demo_data or settings.app_env == "production"):
+    """启动时调用：空数据库（没有任何用户）自动初始化演示数据。
+
+    这样免费托管每次重新部署后，演示站必然有 demo 账号可看；
+    测试环境（APP_ENV=test）永远不种数据，避免污染测试。
+    也可用 SEED_DEMO_DATA=true 显式开启（对已有数据的库强制生成）。
+    """
+    if settings.app_env == "test":
         return False
     with Session(engine) as session:
+        if session.exec(select(User)).first() is not None and not settings.seed_demo_data:
+            return False  # 库里已有用户：只有显式开启才会补种
         return seed_demo(session)
 
 
