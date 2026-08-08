@@ -77,3 +77,11 @@ export interface AnnualReport {
   fun_facts: string[];
   summary: string;
 }
+
+export interface ImportResult {
+  total_rows: number;
+  imported: number;
+  skipped_duplicates: number;
+  failed: number;
+  errors: string[];
+}

@@ -4,7 +4,7 @@
 import { onMounted, reactive, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import api from "../api";
-import type { Category, Transaction, Wallet } from "../types";
+import type { Category, ImportResult, Transaction, Wallet } from "../types";
 
 const cur = new Date();
 const month = ref(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`);
@@ -19,6 +19,10 @@ const pageSize = ref(20);
 const total = ref(0);
 
 const dialogVisible = ref(false);
+const importVisible = ref(false);
+const importFile = ref<File | null>(null);
+const importing = ref(false);
+const importResult = ref<ImportResult | null>(null);
 const editingId = ref<number | null>(null);
 const form = reactive({
   type: "expense" as "income" | "expense",
@@ -131,6 +135,41 @@ async function exportCsv() {
   URL.revokeObjectURL(url);
 }
 
+function onImportFile(file: any) {
+  importFile.value = file.raw;
+  importResult.value = null;
+}
+
+async function doImport() {
+  if (!importFile.value) {
+    ElMessage.warning("请先选择 CSV 文件");
+    return;
+  }
+  importing.value = true;
+  try {
+    const form = new FormData();
+    form.append("file", importFile.value);
+    const { data } = await api.post("/transactions/import", form);
+    importResult.value = data;
+    ElMessage.success(`导入完成：新增 ${data.imported} 条，跳过重复 ${data.skipped_duplicates} 条`);
+    load();
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || "导入失败");
+  } finally {
+    importing.value = false;
+  }
+}
+
+async function downloadTemplate() {
+  const res = await api.get("/transactions/import-template", { responseType: "blob" });
+  const url = URL.createObjectURL(res.data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "moneymate_template.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // 类型切换时清空分类选择
 watch(() => form.type, () => { form.category_id = undefined; });
 watch(month, onFilterChange);
@@ -155,6 +194,7 @@ onMounted(() => { load(); loadCategories(); loadWallets(); });
       />
       <el-button @click="onFilterChange">搜索</el-button>
       <span class="spacer" />
+      <el-button @click="importVisible = true">📥 导入账单</el-button>
       <el-button @click="exportCsv">导出 CSV</el-button>
       <el-button type="primary" @click="openCreate">记一笔</el-button>
     </div>
@@ -230,6 +270,37 @@ onMounted(() => { load(); loadCategories(); loadWallets(); });
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" @click="save">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="importVisible" title="导入账单" width="460px">
+      <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.7">
+        支持支付宝/微信导出的 CSV（自动识别列名），也可以使用我们的模板。
+        重复流水会自动跳过，分类自动匹配。
+      </div>
+      <div style="margin-bottom: 12px">
+        <el-button size="small" @click="downloadTemplate">⬇️ 下载导入模板</el-button>
+      </div>
+      <el-upload
+        drag
+        :auto-upload="false"
+        :limit="1"
+        accept=".csv"
+        :on-change="onImportFile"
+        style="width: 100%"
+      >
+        <div style="padding: 20px 0; font-size: 14px">把 CSV 文件拖到这里，或点击选择</div>
+      </el-upload>
+      <div v-if="importResult" style="margin-top: 12px; font-size: 13px; line-height: 1.8">
+        共读取 {{ importResult.total_rows }} 行：
+        <span style="color: var(--success)">新增 {{ importResult.imported }}</span> ·
+        <span style="color: var(--warn)">跳过重复 {{ importResult.skipped_duplicates }}</span> ·
+        <span v-if="importResult.failed" style="color: var(--danger)">失败 {{ importResult.failed }}</span>
+        <div v-for="(e, i) in importResult.errors" :key="i" style="color: var(--danger); font-size: 12px">{{ e }}</div>
+      </div>
+      <template #footer>
+        <el-button @click="importVisible = false">关闭</el-button>
+        <el-button type="primary" :loading="importing" @click="doImport">开始导入</el-button>
       </template>
     </el-dialog>
   </div>

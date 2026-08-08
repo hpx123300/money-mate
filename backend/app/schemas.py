@@ -94,6 +94,16 @@ class TransactionPage(BaseModel):
     items: list[TransactionRead]
 
 
+class ImportResult(BaseModel):
+    """账单导入结果"""
+
+    total_rows: int
+    imported: int
+    skipped_duplicates: int
+    failed: int
+    errors: list[str] = []
+
+
 # ============ 预算 ============
 
 

@@ -496,6 +496,70 @@ def test_export_csv():
     assert "66" in r.text
 
 
+def test_import_bill():
+    user = _register()
+    headers = _login(user["username"])
+    csv_content = (
+        "日期,类型,分类,金额,备注\n"
+        "2026-08-01,支出,餐饮,25.5,午餐\n"
+        "2026-08-02,收入,工资,3000,八月工资\n"
+        "2026-08-03,支出,健身,100,办卡\n"  # 未知分类 → 归入其他支出
+    )
+    r = client.post(
+        "/api/transactions/import",
+        files={"file": ("bill.csv", csv_content.encode("utf-8"), "text/csv")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["imported"] == 3
+    assert data["failed"] == 0
+
+    # 再次导入 → 全部按重复跳过
+    r2 = client.post(
+        "/api/transactions/import",
+        files={"file": ("bill.csv", csv_content.encode("utf-8"), "text/csv")},
+        headers=headers,
+    )
+    assert r2.json()["skipped_duplicates"] == 3
+
+    # 分类映射正确：已知分类精确匹配，未知分类落到「其他支出」
+    notes = {
+        t["note"]: t["category_name"]
+        for t in client.get("/api/transactions", headers=headers).json()["items"]
+    }
+    assert notes["午餐"] == "餐饮"
+    assert notes["八月工资"] == "工资"
+    assert notes["办卡"] == "其他支出"
+
+
+def test_import_zhifubao_format():
+    """模拟支付宝导出格式：GBK 编码、时间带时分、分类名含关键词。"""
+    user = _register()
+    headers = _login(user["username"])
+    csv_content = (
+        "交易时间,交易分类,交易对方,商品说明,收/支,金额,收/付款方式\n"
+        "2026/08/01 12:30,餐饮美食,某某奶茶店,奶茶,支出,¥18.00,余额宝\n"
+    )
+    r = client.post(
+        "/api/transactions/import",
+        files={"file": ("alipay.csv", csv_content.encode("gb18030"), "text/csv")},
+        headers=headers,
+    )
+    data = r.json()
+    assert data["imported"] == 1
+    tx = client.get("/api/transactions", headers=headers).json()["items"]
+    assert tx[0]["note"] == "奶茶"
+    assert tx[0]["amount"] == 18.0
+    assert tx[0]["category_name"] == "餐饮"
+
+
+def test_import_template():
+    r = client.get("/api/transactions/import-template")
+    assert r.status_code == 200
+    assert "日期,类型,分类,金额,备注" in r.text
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

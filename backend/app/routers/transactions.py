@@ -2,16 +2,24 @@
 
 import csv
 import io
+import re
+from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import Response, StreamingResponse
 from sqlmodel import Session, func, select
 
 from ..cache import cache
 from ..database import get_db
 from ..deps import get_current_user
 from ..models import Category, Transaction, User, Wallet
-from ..schemas import TransactionCreate, TransactionPage, TransactionRead, TransactionUpdate
+from ..schemas import (
+    ImportResult,
+    TransactionCreate,
+    TransactionPage,
+    TransactionRead,
+    TransactionUpdate,
+)
 
 router = APIRouter(prefix="/api/transactions", tags=["流水"])
 
@@ -165,6 +173,222 @@ def delete_transaction(
     db.delete(t)
     db.commit()
     cache.delete_prefix(f"stats:{current.id}:")
+
+
+# ============================================================
+# 账单导入（支付宝/微信 CSV）
+# ============================================================
+
+# 常见列名别名：帮助识别不同来源的账单格式
+_HEADER_ALIASES = {
+    "date": ["交易时间", "交易日期", "时间", "日期"],
+    "type": ["收/支", "收支", "收入/支出", "类型"],
+    "amount": ["金额(元)", "金额", "发生额"],
+    "note": ["商品说明", "商品", "备注", "说明", "交易对方"],
+    "category": ["交易分类", "分类"],
+}
+
+
+def _decode_csv(raw: bytes) -> str:
+    """支付宝导出的 CSV 可能是 GBK/GB18030 编码，依次尝试解码。"""
+    for enc in ("utf-8-sig", "gb18030"):
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("utf-8", errors="ignore")
+
+
+def _parse_date(value: str) -> date | None:
+    m = re.search(r"(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})", value)
+    if not m:
+        return None
+    try:
+        return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    except ValueError:
+        return None
+
+
+def _parse_amount(value: str) -> float | None:
+    cleaned = re.sub(r"[^\d.\-]", "", value)
+    if not cleaned or cleaned in ("-", "."):
+        return None
+    try:
+        return abs(float(cleaned))
+    except ValueError:
+        return None
+
+
+def _parse_type(value: str, amount: float | None) -> str | None:
+    v = value.strip()
+    if v in ("收", "收入", "income", "+"):
+        return "income"
+    if v in ("支", "支出", "expense", "-"):
+        return "expense"
+    # 有些导出金额为负数表示支出
+    if re.search(r"-\d", value):
+        return "expense"
+    if amount is not None:
+        return "expense"  # 识别不了时按支出处理，避免误判为收入
+    return None
+
+
+def _parse_csv_rows(text: str) -> tuple[list[dict], list[str]]:
+    """把 CSV 文本解析成 [{date, type, amount, note, category}]，识别表头列名。"""
+    reader = csv.reader(io.StringIO(text))
+    all_rows = [r for r in reader if any(cell.strip() for cell in r)]
+    if not all_rows:
+        return [], ["文件为空"]
+
+    # 找表头行：包含「金额」或「日期」关键词的那一行
+    header_idx = None
+    for i, row in enumerate(all_rows[:20]):
+        joined = ",".join(row)
+        if "金额" in joined or "日期" in joined:
+            header_idx = i
+            break
+    if header_idx is None:
+        # 没有表头：按我们的模板顺序处理（日期,类型,分类,金额,备注）
+        header = ["日期", "类型", "分类", "金额", "备注"]
+        start = 0
+    else:
+        header = all_rows[header_idx]
+        start = header_idx + 1
+
+    col_map: dict[str, int] = {}
+    for key, aliases in _HEADER_ALIASES.items():
+        # 按别名优先级匹配（而不是按列顺序），避免「交易对方」抢先占用备注列
+        for alias in aliases:
+            for idx, cell in enumerate(header):
+                cell_clean = cell.strip().lower()
+                if cell_clean == alias.lower() or alias.lower() in cell_clean:
+                    col_map[key] = idx
+                    break
+            if key in col_map:
+                break
+
+    # 我们的模板列名统一映射
+    for key, name in (("date", "日期"), ("type", "类型"), ("amount", "金额"), ("note", "备注"), ("category", "分类")):
+        if key not in col_map and name in header:
+            col_map[key] = header.index(name)
+
+    rows: list[dict] = []
+    errors: list[str] = []
+    for row_num, row in enumerate(all_rows[start:], start=start + 1):
+        def cell(key: str) -> str:
+            idx = col_map.get(key)
+            return row[idx].strip() if idx is not None and idx < len(row) else ""
+
+        d = _parse_date(cell("date"))
+        amount = _parse_amount(cell("amount"))
+        t = _parse_type(cell("type"), amount)
+        if d is None or amount is None or t is None:
+            errors.append(f"第 {row_num} 行无法解析（日期/金额/类型缺失或格式错误）")
+            continue
+        rows.append(
+            {
+                "occurred_at": d,
+                "type": t,
+                "amount": amount,
+                "note": cell("note")[:200] or "",
+                "category_name": cell("category")[:20] or "",
+            }
+        )
+    return rows, errors
+
+
+@router.post("/import", response_model=ImportResult)
+async def import_transactions(
+    file: UploadFile = File(...),
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    导入账单 CSV：支持支付宝/微信导出的文件（自动识别列名），
+    也支持下载模板格式。重复流水自动跳过，分类自动匹配。
+    """
+    raw = await file.read()
+    text = _decode_csv(raw)
+    rows, errors = _parse_csv_rows(text)
+
+    # 用户分类映射：名称 -> Category
+    categories = {
+        c.name: c
+        for c in db.exec(select(Category).where(Category.user_id == current.id)).all()
+    }
+
+    # 已有流水集合，用于去重（同用户 + 同日期 + 同金额 + 同备注）
+    existing = {
+        (t.occurred_at, t.amount, t.note)
+        for t in db.exec(select(Transaction).where(Transaction.user_id == current.id)).all()
+    }
+
+    imported = 0
+    skipped = 0
+    for row in rows:
+        key = (row["occurred_at"], row["amount"], row["note"])
+        if key in existing:
+            skipped += 1
+            continue
+
+        # 分类匹配：先精确、再包含、最后用默认「其他」
+        category = None
+        cname = row["category_name"]
+        if cname:
+            category = categories.get(cname)
+            if category is None:
+                for name, cat in categories.items():
+                    if cname in name or name in cname:
+                        category = cat
+                        break
+        if category is None:
+            default_name = "其他支出" if row["type"] == "expense" else "其他收入"
+            category = categories.get(default_name)
+            if category is None:
+                category = Category(
+                    user_id=current.id, name=default_name, type=row["type"]
+                )
+                db.add(category)
+                db.flush()
+                categories[default_name] = category
+
+        db.add(
+            Transaction(
+                user_id=current.id,
+                category_id=category.id,
+                amount=row["amount"],
+                type=row["type"],
+                note=row["note"],
+                occurred_at=row["occurred_at"],
+            )
+        )
+        existing.add(key)
+        imported += 1
+
+    db.commit()
+    cache.delete_prefix(f"stats:{current.id}:")
+    return ImportResult(
+        total_rows=len(rows),
+        imported=imported,
+        skipped_duplicates=skipped,
+        failed=len(errors),
+        errors=errors[:20],
+    )
+
+
+@router.get("/import-template")
+def import_template():
+    """下载导入模板 CSV。"""
+    content = (
+        "日期,类型,分类,金额,备注\n"
+        "2026-08-01,支出,餐饮,25.5,午餐\n"
+        "2026-08-02,收入,工资,3000,八月工资\n"
+    )
+    return Response(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="moneymate_template.csv"'},
+    )
 
 
 @router.get("/export")
