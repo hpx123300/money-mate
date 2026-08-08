@@ -1,6 +1,6 @@
 """预算接口：按月度设置预算、查询当月预算与支出。"""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select, func
 
 from ..database import get_db
@@ -48,6 +48,8 @@ def set_budget(
     db: Session = Depends(get_db),
 ):
     """设置/更新某月预算。"""
+    if data.month != month:
+        raise HTTPException(status_code=400, detail="请求体月份与路径月份不一致")
     budget = db.exec(
         select(Budget).where(Budget.user_id == current.id, Budget.month == month)
     ).first()

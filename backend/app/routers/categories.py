@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
+from ..cache import cache
 from ..database import get_db
 from ..deps import get_current_user
 from ..models import Category, Transaction, User
@@ -48,6 +49,7 @@ def create_category(
     db.add(category)
     db.commit()
     db.refresh(category)
+    cache.delete_prefix(f"stats:{current.id}:")
     return _to_read(category)
 
 
@@ -88,6 +90,7 @@ def update_category(
     db.add(category)
     db.commit()
     db.refresh(category)
+    cache.delete_prefix(f"stats:{current.id}:")
     return _to_read(category)
 
 
@@ -107,3 +110,4 @@ def delete_category(
         raise HTTPException(status_code=400, detail="该分类下已有流水，不能删除")
     db.delete(category)
     db.commit()
+    cache.delete_prefix(f"stats:{current.id}:")

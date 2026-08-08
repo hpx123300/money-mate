@@ -393,6 +393,64 @@ def test_annual_report():
     assert data["summary"]
 
 
+def test_budget_month_mismatch():
+    """URL 月份与请求体月份不一致时应报错，防止数据写错月份。"""
+    user = _register()
+    headers = _login(user["username"])
+    r = client.put(
+        "/api/budget/2026-08",
+        json={"month": "2026-09", "amount": 1000},
+        headers=headers,
+    )
+    assert r.status_code == 400
+
+
+def test_migration_creates_default_wallet():
+    """
+    模拟旧库数据：用户没有钱包、流水 wallet_id 为空。
+    init_db 的迁移逻辑应自动创建「现金」钱包并把历史流水归入。
+    """
+    from sqlmodel import Session as DBSession
+    from sqlmodel import select
+
+    from app.database import engine, init_db
+    from app.models import Category, Transaction, User, Wallet
+    from app.security import hash_password
+
+    name = _new_username() + "_old"
+    with DBSession(engine) as s:
+        user = User(
+            username=name,
+            email=f"{name}@test.com",
+            hashed_password=hash_password("secret123"),
+        )
+        s.add(user)
+        s.flush()
+        cat = Category(user_id=user.id, name="旧分类", type="expense")
+        s.add(cat)
+        s.flush()
+        s.add(
+            Transaction(
+                user_id=user.id,
+                category_id=cat.id,
+                amount=10,
+                type="expense",
+                note="旧账",
+            )
+        )
+        s.commit()
+        uid = user.id
+
+    init_db()  # 触发迁移：补默认钱包 + 归入流水
+
+    with DBSession(engine) as s:
+        wallet = s.exec(select(Wallet).where(Wallet.user_id == uid)).first()
+        assert wallet is not None
+        assert wallet.name == "现金"
+        tx = s.exec(select(Transaction).where(Transaction.user_id == uid)).first()
+        assert tx.wallet_id == wallet.id
+
+
 def test_stats():
     user = _register()
     headers = _login(user["username"])
