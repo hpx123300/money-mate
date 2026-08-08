@@ -7,15 +7,29 @@ import type { EChartsOption } from "echarts";
 import api from "../api";
 import EChart from "../components/EChart.vue";
 import { formatMoney } from "../utils";
-import type { Allowance, MonthSummary, TrendPoint, Wallet } from "../types";
+import type { Allowance, Category, MonthSummary, TrendPoint, Wallet } from "../types";
 
 const cur = new Date();
 const month = ref(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`);
 const summary = ref<MonthSummary | null>(null);
 const trend = ref<TrendPoint[]>([]);
 const wallets = ref<Wallet[]>([]);
+const categories = ref<Category[]>([]);
 const monthlyText = ref("");
 const allowance = ref<Allowance | null>(null);
+const aiText = ref("");
+const aiParsing = ref(false);
+const aiDraftVisible = ref(false);
+const aiDraft = reactive({
+  type: "expense" as "income" | "expense",
+  category_id: undefined as number | undefined,
+  wallet_id: undefined as number | undefined,
+  amount: undefined as number | undefined,
+  occurred_at: "",
+  note: "",
+});
+const aiSummary = ref("");
+const aiSummaryLoading = ref(false);
 
 const walletDialog = ref(false);
 const walletForm = reactive({ name: "", balance: 0 });
@@ -42,6 +56,11 @@ async function loadWallets() {
   }
 }
 
+async function loadCategories() {
+  const { data } = await api.get("/categories");
+  categories.value = data;
+}
+
 async function loadMonthlySummary() {
   try {
     const { data } = await api.get(`/stats/monthly-summary?month=${month.value}`);
@@ -57,6 +76,63 @@ async function loadAllowance() {
     allowance.value = data;
   } catch {
     allowance.value = null;
+  }
+}
+
+async function aiParse() {
+  const text = aiText.value.trim();
+  if (!text) {
+    ElMessage.warning("先输入一句话，比如「今天午饭花了 25」");
+    return;
+  }
+  aiParsing.value = true;
+  try {
+    const { data } = await api.post("/ai/parse-transaction", { text });
+    Object.assign(aiDraft, {
+      type: data.type,
+      category_id: data.category_id,
+      wallet_id: data.wallet_id,
+      amount: data.amount,
+      occurred_at: data.occurred_at,
+      note: data.note,
+    });
+    aiDraftVisible.value = true;
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || "AI 解析失败，请稍后再试");
+  } finally {
+    aiParsing.value = false;
+  }
+}
+
+async function aiSave() {
+  if (!aiDraft.category_id || !aiDraft.amount) {
+    ElMessage.warning("请确认分类和金额");
+    return;
+  }
+  try {
+    await api.post("/transactions", { ...aiDraft });
+    ElMessage.success("AI 记账成功 ✨");
+    aiDraftVisible.value = false;
+    aiText.value = "";
+    load();
+    loadWallets();
+    loadMonthlySummary();
+    loadAllowance();
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || "保存失败");
+  }
+}
+
+async function aiAnalyze() {
+  aiSummaryLoading.value = true;
+  aiSummary.value = "";
+  try {
+    const { data } = await api.get(`/ai/monthly-summary?month=${month.value}`);
+    aiSummary.value = data.summary;
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || "AI 分析失败，请稍后再试");
+  } finally {
+    aiSummaryLoading.value = false;
   }
 }
 
@@ -110,6 +186,7 @@ const lineOption = computed<EChartsOption>(() => ({
 onMounted(() => {
   load();
   loadWallets();
+  loadCategories();
   loadMonthlySummary();
   loadAllowance();
 });
@@ -123,6 +200,20 @@ onMounted(() => {
       <el-button @click="$router.push('/report')">🗓️ 年度报告</el-button>
       <el-button @click="load">刷新</el-button>
     </div>
+
+    <el-card style="margin-bottom: 12px">
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+        <span style="font-weight: 600">✨ AI 记账小助手</span>
+        <el-input
+          v-model="aiText"
+          placeholder="说一句话就能记账，比如「今天午饭花了 25」"
+          style="max-width: 430px"
+          clearable
+          @keyup.enter="aiParse"
+        />
+        <el-button type="primary" :loading="aiParsing" @click="aiParse">AI 记一笔</el-button>
+      </div>
+    </el-card>
 
     <el-card v-if="allowance && allowance.amount > 0" style="margin-bottom: 12px">
       <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 20px">
@@ -182,9 +273,18 @@ onMounted(() => {
       </el-col>
     </el-row>
 
-    <el-card v-if="monthlyText" style="margin-bottom: 12px">
-      <h3 style="margin-bottom: 6px">📝 本月总结</h3>
-      <p style="white-space: pre-wrap; font-size: 13.5px; line-height: 1.8">{{ monthlyText }}</p>
+    <el-card v-if="monthlyText || aiSummary" style="margin-bottom: 12px">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px">
+        <h3 style="margin: 0">📝 本月总结</h3>
+        <el-button size="small" :loading="aiSummaryLoading" @click="aiAnalyze">✨ AI 深度分析</el-button>
+      </div>
+      <p v-if="monthlyText" style="white-space: pre-wrap; font-size: 13.5px; line-height: 1.8; margin: 0">{{ monthlyText }}</p>
+      <p
+        v-if="aiSummary"
+        style="white-space: pre-wrap; font-size: 13.5px; line-height: 1.8; margin: 8px 0 0; border-top: 1px dashed var(--border-color); padding-top: 8px"
+      >
+        {{ aiSummary }}
+      </p>
     </el-card>
 
     <el-row :gutter="12">
@@ -208,6 +308,45 @@ onMounted(() => {
       <template #footer>
         <el-button @click="walletDialog = false">取消</el-button>
         <el-button type="primary" @click="addWallet">创建</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="aiDraftVisible" title="AI 识别结果，确认一下" width="420px">
+      <el-form label-width="70px">
+        <el-form-item label="类型">
+          <el-radio-group v-model="aiDraft.type" @change="aiDraft.category_id = undefined">
+            <el-radio-button value="expense">支出</el-radio-button>
+            <el-radio-button value="income">收入</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="分类">
+          <el-select v-model="aiDraft.category_id" placeholder="选择分类" style="width: 100%">
+            <el-option
+              v-for="c in categories.filter((c) => c.type === aiDraft.type)"
+              :key="c.id"
+              :label="c.name"
+              :value="c.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="钱包">
+          <el-select v-model="aiDraft.wallet_id" placeholder="选择钱包" style="width: 100%">
+            <el-option v-for="w in wallets" :key="w.id" :label="w.name" :value="w.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="金额">
+          <el-input-number v-model="aiDraft.amount" :min="0.01" :precision="2" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="日期">
+          <el-date-picker v-model="aiDraft.occurred_at" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="aiDraft.note" maxlength="200" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="aiDraftVisible = false">取消</el-button>
+        <el-button type="primary" @click="aiSave">确认记账</el-button>
       </template>
     </el-dialog>
   </div>

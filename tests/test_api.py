@@ -21,6 +21,7 @@ if os.path.exists(_tmp_db):
     os.remove(_tmp_db)
 os.environ["DATABASE_URL"] = f"sqlite:///{_tmp_db}"
 os.environ["APP_ENV"] = "test"
+os.environ["LLM_API_KEY"] = ""  # AI 接口测试不真调模型，走 mock
 
 from fastapi.testclient import TestClient  # noqa: E402
 
@@ -591,6 +592,117 @@ def test_allowance_flow():
     # 非法到账日
     r = client.put("/api/allowance", json={"amount": 100, "day_of_month": 31}, headers=headers)
     assert r.status_code == 422
+
+
+def test_ai_requires_config():
+    """没配 LLM key 时，三个 AI 接口都要优雅返回 503。"""
+    user = _register()
+    headers = _login(user["username"])
+
+    r = client.post("/api/ai/parse-transaction", json={"text": "午饭花了 25"}, headers=headers)
+    assert r.status_code == 503
+    assert "LLM_API_KEY" in r.json()["detail"]
+
+    r = client.post("/api/ai/suggest-category", json={"note": "奶茶"}, headers=headers)
+    assert r.status_code == 503
+
+    # 先记一笔，月度总结才会走到调 LLM 那一步
+    food = next(
+        c for c in client.get("/api/categories", headers=headers).json() if c["name"] == "餐饮"
+    )
+    _add_expense(headers, food["id"], 100, "食堂")
+    r = client.get(f"/api/ai/monthly-summary?month={CUR_MONTH}", headers=headers)
+    assert r.status_code == 503
+
+
+def test_ai_parse_transaction():
+    """mock 掉 LLM：输入一句话，正确解析出金额/分类/钱包。"""
+    from app.routers import ai as ai_router
+
+    original = ai_router.llm.chat_json
+    ai_router.llm.chat_json = lambda prompt, system: {
+        "type": "expense",
+        "amount": 25,
+        "category": "餐饮",
+        "wallet": "现金",
+        "note": "午饭",
+        "date": f"{CUR_MONTH}-02",
+    }
+    try:
+        user = _register()
+        headers = _login(user["username"])
+        r = client.post("/api/ai/parse-transaction", json={"text": "今天午饭花了 25"}, headers=headers)
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert data["amount"] == 25
+        assert data["type"] == "expense"
+        assert data["category"] == "餐饮"
+        assert data["wallet"] == "现金"
+        assert data["occurred_at"] == f"{CUR_MONTH}-02"
+    finally:
+        ai_router.llm.chat_json = original
+
+
+def test_ai_parse_fallback_category():
+    """模型给了不存在的分类时，自动落到「其他支出」，流程不中断。"""
+    from app.routers import ai as ai_router
+
+    original = ai_router.llm.chat_json
+    ai_router.llm.chat_json = lambda prompt, system: {
+        "type": "expense",
+        "amount": 9.9,
+        "category": "不存在分类",
+        "wallet": "现金",
+        "note": "杂费",
+        "date": f"{CUR_MONTH}-03",
+    }
+    try:
+        user = _register()
+        headers = _login(user["username"])
+        r = client.post("/api/ai/parse-transaction", json={"text": "交了 9.9 杂费"}, headers=headers)
+        assert r.status_code == 200
+        assert r.json()["category"] == "其他支出"
+    finally:
+        ai_router.llm.chat_json = original
+
+
+def test_ai_suggest_category():
+    from app.routers import ai as ai_router
+
+    original = ai_router.llm.chat_json
+    ai_router.llm.chat_json = lambda prompt, system: {"category": "餐饮", "type": "expense"}
+    try:
+        user = _register()
+        headers = _login(user["username"])
+        r = client.post("/api/ai/suggest-category", json={"note": "食堂午饭"}, headers=headers)
+        assert r.status_code == 200
+        assert r.json()["category"] == "餐饮"
+        assert r.json()["type"] == "expense"
+    finally:
+        ai_router.llm.chat_json = original
+
+
+def test_ai_monthly_summary():
+    from app.routers import ai as ai_router
+
+    original = ai_router.llm.chat_text
+    ai_router.llm.chat_text = lambda prompt, system: "这个月食堂花得最多，建议少点外卖。"
+    try:
+        user = _register()
+        headers = _login(user["username"])
+        food = next(
+            c for c in client.get("/api/categories", headers=headers).json() if c["name"] == "餐饮"
+        )
+        _add_expense(headers, food["id"], 120, "食堂")
+        r = client.get(f"/api/ai/monthly-summary?month={CUR_MONTH}", headers=headers)
+        assert r.status_code == 200
+        assert "食堂" in r.json()["summary"]
+
+        # 没有账单的月份返回 404
+        r = client.get("/api/ai/monthly-summary?month=2020-01", headers=headers)
+        assert r.status_code == 404
+    finally:
+        ai_router.llm.chat_text = original
 
 
 if __name__ == "__main__":

@@ -40,6 +40,39 @@ class CategoryRead(BaseModel):
     type: str
 
 
+# ============ AI 记账助手 ============
+
+
+class AiParseRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=200)
+
+
+class AiCategoryRequest(BaseModel):
+    note: str = Field(min_length=1, max_length=200)
+
+
+class AiParseResult(BaseModel):
+    type: str
+    amount: float
+    category_id: int
+    category: str
+    wallet_id: int | None
+    wallet: str | None
+    note: str
+    occurred_at: date
+
+
+class AiCategoryResult(BaseModel):
+    category_id: int
+    category: str
+    type: str
+
+
+class AiSummaryResult(BaseModel):
+    month: str
+    summary: str
+
+
 # ============ 钱包 ============
 
 
