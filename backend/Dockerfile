@@ -20,9 +20,11 @@ WORKDIR /app
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY backend/app ./app
-COPY --from=frontend /web/dist ./app/static
+# 保持与本地相同的目录结构（backend/app），这样 config.py 里
+# 计算的项目根目录在容器内也是 /app，数据库才能写进挂载的 /app/data
+COPY backend/app ./backend/app
+COPY --from=frontend /web/dist ./backend/app/static
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--app-dir", "backend"]

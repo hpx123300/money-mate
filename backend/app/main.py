@@ -17,6 +17,7 @@ from .routers import auth, budget, categories, stats, transactions, wallets
 async def lifespan(app: FastAPI):
     init_db()
     print(f"[MoneyMate] 启动完成 | 环境: {settings.app_env}")
+    print(f"[MoneyMate] 数据库: {settings.database_url}")
     yield
 
 
