@@ -1,8 +1,9 @@
 <!-- 仪表盘：月度汇总 + 分类占比饼图 + 趋势折线图 -->
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
+import type { EChartsOption } from "echarts";
 import api from "../api";
 import EChart from "../components/EChart.vue";
 import type { MonthSummary, TrendPoint, Wallet } from "../types";
@@ -68,7 +69,7 @@ async function addWallet() {
   }
 }
 
-const pieOption = computed(() => ({
+const pieOption = computed<EChartsOption>(() => ({
   title: { text: "支出分类占比", left: "center" },
   tooltip: { trigger: "item", formatter: "{b}: ¥{c} ({d}%)" },
   series: [
@@ -83,7 +84,7 @@ const pieOption = computed(() => ({
   ],
 }));
 
-const lineOption = computed(() => ({
+const lineOption = computed<EChartsOption>(() => ({
   title: { text: "近 6 个月收支趋势", left: "center" },
   tooltip: { trigger: "axis" },
   legend: { data: ["收入", "支出"], bottom: 0 },
