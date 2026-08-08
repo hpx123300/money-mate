@@ -5,7 +5,7 @@
 起因是生活费老是超支：月初的钱月底就没了，微信和支付宝里各有多少钱也搞不清。所以想自己写个记账网站——记下每笔钱花在哪、每个钱包还剩多少，月底还能自动给我来一段总结，看看钱到底花哪了。顺便也把课堂上学的东西真正用一遍，练练手。
 
 ![License](https://img.shields.io/badge/License-MIT-green)
-![CI](https://github.com/你的用户名/money-mate/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/hpx123300/money-mate/actions/workflows/ci.yml/badge.svg)
 
 ## 能做什么
 
