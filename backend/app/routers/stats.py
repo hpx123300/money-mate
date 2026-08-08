@@ -7,8 +7,8 @@ from sqlmodel import Session, func, select
 
 from ..database import get_db
 from ..deps import get_current_user
-from ..models import Category, Transaction, User
-from ..schemas import CategoryStat, MonthSummary, TrendOut, TrendPoint
+from ..models import Budget, Category, Transaction, User
+from ..schemas import CategoryStat, MonthSummary, MonthlySummary, TrendOut, TrendPoint
 
 router = APIRouter(prefix="/api/stats", tags=["统计"])
 
@@ -113,3 +113,83 @@ def month_trend(
         ]
     )
 
+
+@router.get("/monthly-summary", response_model=MonthlySummary)
+def monthly_summary(
+    month: str | None = None,
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    月度总结：纯规则生成的一段「人话」。
+    亮点：统计奶茶/咖啡/外卖次数，月底给一句生活化总结。
+    不用 LLM，零成本，逻辑完全可解释。
+    """
+    month = month or _month_key(date.today())
+    rows = db.exec(
+        select(Transaction).where(
+            Transaction.user_id == current.id,
+            Transaction.occurred_at.startswith(month),
+        )
+    ).all()
+    cats = {
+        c.id: c.name
+        for c in db.exec(select(Category).where(Category.user_id == current.id)).all()
+    }
+
+    income = sum(t.amount for t in rows if t.type == "income")
+    expense = sum(t.amount for t in rows if t.type == "expense")
+    balance = income - expense
+
+    lines = [f"{month} 月度总结"]
+
+    # 收支总览
+    lines.append(f"总收入 ¥{income:.2f}，总支出 ¥{expense:.2f}，结余 ¥{balance:.2f}。")
+
+    # 支出最多的分类
+    by_cat: dict[str, float] = {}
+    for t in rows:
+        if t.type == "expense":
+            name = cats.get(t.category_id, "其他")
+            by_cat[name] = by_cat.get(name, 0) + t.amount
+    if by_cat:
+        top_name, top_amount = max(by_cat.items(), key=lambda x: x[1])
+        top_percent = top_amount / expense * 100 if expense else 0
+        lines.append(f"花钱最多的是「{top_name}」，¥{top_amount:.2f}，占支出的 {top_percent:.0f}%。")
+
+    # 最大单笔
+    expenses = [t for t in rows if t.type == "expense"]
+    if expenses:
+        biggest = max(expenses, key=lambda t: t.amount)
+        note = f"（{biggest.note}）" if biggest.note else ""
+        lines.append(
+            f"最大一笔是「{cats.get(biggest.category_id, '其他')}」¥{biggest.amount:.2f}{note}，发生在 {biggest.occurred_at}。"
+        )
+
+    # 奶茶/咖啡/外卖彩蛋
+    for keyword in ("奶茶", "咖啡", "外卖"):
+        hits = [t for t in expenses if keyword in t.note]
+        if hits:
+            total = sum(t.amount for t in hits)
+            lines.append(f"{keyword}点了 {len(hits)} 次，共花了 ¥{total:.2f}。")
+
+    # 预算情况
+    budget = db.exec(
+        select(Budget).where(Budget.user_id == current.id, Budget.month == month)
+    ).first()
+    if budget and budget.amount > 0:
+        left = budget.amount - expense
+        if left < 0:
+            lines.append(f"预算 ¥{budget.amount:.2f}，超支了 ¥{-left:.2f}，下个月注意！")
+        else:
+            lines.append(f"预算 ¥{budget.amount:.2f}，还剩 ¥{left:.2f}，控制得不错。")
+
+    # 结尾一句话
+    if expense == 0 and income == 0:
+        lines.append("这个月还没有记账，从今天开始吧！")
+    elif balance < 0:
+        lines.append("支出超过收入啦，看看哪块能省一省。")
+    else:
+        lines.append("总体健康，继续保持！")
+
+    return MonthlySummary(month=month, text="\n".join(lines))

@@ -6,7 +6,7 @@ from sqlmodel import Session, select
 
 from ..database import get_db
 from ..deps import get_current_user
-from ..models import Category, User
+from ..models import Category, User, Wallet
 from ..schemas import Token, UserCreate, UserRead
 from ..security import create_access_token, hash_password, verify_password
 
@@ -47,6 +47,8 @@ def register(data: UserCreate, db: Session = Depends(get_db)):
     # 注册即送一套默认分类，省去新手手动配置
     for name, ctype in DEFAULT_CATEGORIES:
         db.add(Category(user_id=user.id, name=name, type=ctype))
+    # 默认一个「现金」钱包，之后用户自己加微信/支付宝等
+    db.add(Wallet(user_id=user.id, name="现金", balance=0))
 
     db.commit()
     db.refresh(user)
@@ -66,4 +68,3 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
 def me(current: User = Depends(get_current_user)):
     """返回当前登录用户信息（前端用来判断是否已登录）。"""
     return current
-

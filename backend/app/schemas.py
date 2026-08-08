@@ -40,11 +40,27 @@ class CategoryRead(BaseModel):
     type: str
 
 
+# ============ 钱包 ============
+
+
+class WalletCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=20)
+    balance: float = Field(default=0, ge=0, description="初始余额")
+
+
+class WalletRead(BaseModel):
+    id: int
+    name: str
+    balance: float = 0  # 初始余额 + 收支累计后的实时余额
+    transaction_count: int = 0
+
+
 # ============ 流水 ============
 
 
 class TransactionCreate(BaseModel):
     category_id: int
+    wallet_id: int | None = None
     amount: float = Field(gt=0, description="金额必须大于 0")
     type: str = Field(pattern="^(income|expense)$")
     note: str = Field(default="", max_length=200)
@@ -61,6 +77,8 @@ class TransactionRead(BaseModel):
     id: int
     category_id: int
     category_name: str = ""
+    wallet_id: int | None = None
+    wallet_name: str = ""
     amount: float
     type: str
     note: str
@@ -109,3 +127,9 @@ class TrendPoint(BaseModel):
 class TrendOut(BaseModel):
     points: list[TrendPoint]
 
+
+class MonthlySummary(BaseModel):
+    """月度总结：用规则拼出的一段人话（不调 LLM，零成本）"""
+
+    month: str
+    text: str

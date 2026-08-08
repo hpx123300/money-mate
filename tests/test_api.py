@@ -236,6 +236,79 @@ def test_keyword_search():
     assert len(r.json()) == 0
 
 
+def test_wallet_flow():
+    user = _register()
+    headers = _login(user["username"])
+
+    # 注册后默认有一个「现金」钱包
+    r = client.get("/api/wallets", headers=headers)
+    assert len(r.json()) == 1
+    assert r.json()[0]["name"] == "现金"
+
+    # 新建微信钱包，初始余额 100
+    r = client.post("/api/wallets", json={"name": "微信", "balance": 100}, headers=headers)
+    assert r.status_code == 201
+    wechat_id = r.json()["id"]
+
+    # 记一笔到微信钱包
+    food = next(
+        c for c in client.get("/api/categories", headers=headers).json() if c["name"] == "餐饮"
+    )
+    r = client.post(
+        "/api/transactions",
+        json={
+            "category_id": food["id"],
+            "wallet_id": wechat_id,
+            "amount": 20,
+            "type": "expense",
+            "note": "奶茶",
+            "occurred_at": f"{CUR_MONTH}-01",
+        },
+        headers=headers,
+    )
+    assert r.status_code == 201
+    assert r.json()["wallet_name"] == "微信"
+
+    # 微信钱包实时余额 = 100 - 20 = 80
+    r = client.get("/api/wallets", headers=headers)
+    wechat = next(w for w in r.json() if w["id"] == wechat_id)
+    assert wechat["balance"] == 80
+    assert wechat["transaction_count"] == 1
+
+    # 有流水的钱包不能删除
+    assert client.delete(f"/api/wallets/{wechat_id}", headers=headers).status_code == 400
+
+
+def test_monthly_summary():
+    user = _register()
+    headers = _login(user["username"])
+    cats = client.get("/api/categories", headers=headers).json()
+    food = next(c for c in cats if c["name"] == "餐饮")
+    salary = next(c for c in cats if c["name"] == "工资")
+
+    _add_expense(headers, food["id"], 30, "奶茶")
+    _add_expense(headers, food["id"], 50, "外卖")
+    client.post(
+        "/api/transactions",
+        json={
+            "category_id": salary["id"],
+            "amount": 3000,
+            "type": "income",
+            "note": "八月工资",
+            "occurred_at": f"{CUR_MONTH}-01",
+        },
+        headers=headers,
+    )
+
+    r = client.get(f"/api/stats/monthly-summary?month={CUR_MONTH}", headers=headers)
+    assert r.status_code == 200
+    text = r.json()["text"]
+    assert "月度总结" in text
+    assert "3000" in text
+    assert "奶茶" in text
+    assert "外卖" in text
+
+
 def test_stats():
     user = _register()
     headers = _login(user["username"])

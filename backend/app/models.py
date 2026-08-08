@@ -18,6 +18,16 @@ class User(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
 
 
+class Wallet(SQLModel, table=True):
+    """钱包/账户：微信、支付宝、现金…… 每笔流水记在某个钱包下"""
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(index=True, foreign_key="user.id")
+    name: str = Field(max_length=20)
+    balance: float = Field(default=0, description="初始余额（之后收支自动累计）")
+    created_at: datetime = Field(default_factory=utcnow)
+
+
 class Category(SQLModel, table=True):
     """收支分类：支出（餐饮/交通/购物…）或收入（工资/兼职/理财…）"""
 
@@ -34,6 +44,7 @@ class Transaction(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(index=True, foreign_key="user.id")
     category_id: int = Field(index=True, foreign_key="category.id")
+    wallet_id: int | None = Field(default=None, index=True, foreign_key="wallet.id")
     amount: float = Field(default=0)
     type: str = Field(index=True)  # income / expense
     note: str = Field(default="")

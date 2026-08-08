@@ -12,10 +12,19 @@ export interface Category {
   type: "income" | "expense";
 }
 
+export interface Wallet {
+  id: number;
+  name: string;
+  balance: number;
+  transaction_count: number;
+}
+
 export interface Transaction {
   id: number;
   category_id: number;
   category_name: string;
+  wallet_id: number | null;
+  wallet_name: string;
   amount: number;
   type: "income" | "expense";
   note: string;
@@ -49,4 +58,3 @@ export interface TrendPoint {
   income: number;
   expense: number;
 }
-

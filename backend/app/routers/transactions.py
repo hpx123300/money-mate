@@ -9,17 +9,23 @@ from sqlmodel import Session, select
 
 from ..database import get_db
 from ..deps import get_current_user
-from ..models import Category, Transaction, User
+from ..models import Category, Transaction, User, Wallet
 from ..schemas import TransactionCreate, TransactionRead, TransactionUpdate
 
 router = APIRouter(prefix="/api/transactions", tags=["流水"])
 
 
-def _to_read(t: Transaction, categories: dict[int, str]) -> TransactionRead:
+def _to_read(
+    t: Transaction,
+    categories: dict[int, str],
+    wallets: dict[int, str],
+) -> TransactionRead:
     return TransactionRead(
         id=t.id,
         category_id=t.category_id,
         category_name=categories.get(t.category_id, ""),
+        wallet_id=t.wallet_id,
+        wallet_name=wallets.get(t.wallet_id, "") if t.wallet_id else "",
         amount=t.amount,
         type=t.type,
         note=t.note,
@@ -34,11 +40,19 @@ def _category_names(db: Session, user_id: int) -> dict[int, str]:
     }
 
 
+def _wallet_names(db: Session, user_id: int) -> dict[int, str]:
+    return {
+        w.id: w.name
+        for w in db.exec(select(Wallet).where(Wallet.user_id == user_id)).all()
+    }
+
+
 @router.get("", response_model=list[TransactionRead])
 def list_transactions(
     month: str | None = None,      # 2026-08
     type: str | None = None,       # income / expense
     category_id: int | None = None,
+    wallet_id: int | None = None,
     keyword: str | None = None,    # 备注关键词搜索
     current: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -51,11 +65,14 @@ def list_transactions(
         query = query.where(Transaction.type == type)
     if category_id:
         query = query.where(Transaction.category_id == category_id)
+    if wallet_id:
+        query = query.where(Transaction.wallet_id == wallet_id)
     if keyword:
         query = query.where(Transaction.note.contains(keyword))
     rows = db.exec(query.order_by(Transaction.occurred_at.desc(), Transaction.id.desc())).all()
     names = _category_names(db, current.id)
-    return [_to_read(t, names) for t in rows]
+    wallets = _wallet_names(db, current.id)
+    return [_to_read(t, names, wallets) for t in rows]
 
 
 @router.post("", response_model=TransactionRead, status_code=201)
@@ -70,9 +87,14 @@ def create_transaction(
         raise HTTPException(status_code=400, detail="分类不存在")
     if category.type != data.type:
         raise HTTPException(status_code=400, detail="分类类型与流水类型不一致")
+    if data.wallet_id:
+        wallet = db.get(Wallet, data.wallet_id)
+        if not wallet or wallet.user_id != current.id:
+            raise HTTPException(status_code=400, detail="钱包不存在")
     t = Transaction(
         user_id=current.id,
         category_id=data.category_id,
+        wallet_id=data.wallet_id,
         amount=data.amount,
         type=data.type,
         note=data.note,
@@ -81,7 +103,7 @@ def create_transaction(
     db.add(t)
     db.commit()
     db.refresh(t)
-    return _to_read(t, _category_names(db, current.id))
+    return _to_read(t, _category_names(db, current.id), _wallet_names(db, current.id))
 
 
 @router.put("/{transaction_id}", response_model=TransactionRead)
@@ -104,7 +126,7 @@ def update_transaction(
     db.add(t)
     db.commit()
     db.refresh(t)
-    return _to_read(t, _category_names(db, current.id))
+    return _to_read(t, _category_names(db, current.id), _wallet_names(db, current.id))
 
 
 @router.delete("/{transaction_id}", status_code=204)

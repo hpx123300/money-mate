@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .database import init_db
-from .routers import auth, budget, categories, stats, transactions
+from .routers import auth, budget, categories, stats, transactions, wallets
 
 
 @asynccontextmanager
@@ -38,6 +38,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(categories.router)
+app.include_router(wallets.router)
 app.include_router(transactions.router)
 app.include_router(budget.router)
 app.include_router(stats.router)

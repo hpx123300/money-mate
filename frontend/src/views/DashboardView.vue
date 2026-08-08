@@ -5,12 +5,17 @@ import { computed, onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import api from "../api";
 import EChart from "../components/EChart.vue";
-import type { MonthSummary, TrendPoint } from "../types";
+import type { MonthSummary, TrendPoint, Wallet } from "../types";
 
 const cur = new Date();
 const month = ref(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`);
 const summary = ref<MonthSummary | null>(null);
 const trend = ref<TrendPoint[]>([]);
+const wallets = ref<Wallet[]>([]);
+const monthlyText = ref("");
+
+const walletDialog = ref(false);
+const walletForm = reactive({ name: "", balance: 0 });
 
 async function load() {
   try {
@@ -22,6 +27,44 @@ async function load() {
     trend.value = t.data.points;
   } catch {
     ElMessage.error("统计数据加载失败");
+  }
+}
+
+async function loadWallets() {
+  try {
+    const { data } = await api.get("/wallets");
+    wallets.value = data;
+  } catch {
+    ElMessage.error("钱包加载失败");
+  }
+}
+
+async function loadMonthlySummary() {
+  try {
+    const { data } = await api.get(`/stats/monthly-summary?month=${month.value}`);
+    monthlyText.value = data.text;
+  } catch {
+    monthlyText.value = "";
+  }
+}
+
+async function addWallet() {
+  if (!walletForm.name.trim()) {
+    ElMessage.warning("请填写钱包名称");
+    return;
+  }
+  try {
+    await api.post("/wallets", {
+      name: walletForm.name.trim(),
+      balance: walletForm.balance || 0,
+    });
+    ElMessage.success("钱包已创建");
+    walletDialog.value = false;
+    walletForm.name = "";
+    walletForm.balance = 0;
+    loadWallets();
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || "创建失败");
   }
 }
 
@@ -52,7 +95,11 @@ const lineOption = computed(() => ({
   ],
 }));
 
-onMounted(load);
+onMounted(() => {
+  load();
+  loadWallets();
+  loadMonthlySummary();
+});
 </script>
 
 <template>
@@ -62,6 +109,23 @@ onMounted(load);
       <span class="spacer" />
       <el-button @click="load">刷新</el-button>
     </div>
+
+    <h3 style="margin-bottom: 12px">💰 钱包总览</h3>
+    <el-row :gutter="16" style="margin-bottom: 20px">
+      <el-col v-for="w in wallets" :key="w.id" :span="6">
+        <el-card shadow="hover">
+          <div class="stat-label">{{ w.name }}</div>
+          <div class="stat-num">¥ {{ w.balance.toFixed(2) }}</div>
+          <div class="stat-label">{{ w.transaction_count }} 笔流水</div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="never" style="border-style: dashed; text-align: center; cursor: pointer" @click="walletDialog = true">
+          <div style="color: #909399; font-size: 28px; line-height: 1.4">＋</div>
+          <div style="color: #909399; font-size: 13px">添加钱包</div>
+        </el-card>
+      </el-col>
+    </el-row>
 
     <el-row :gutter="16" style="margin-bottom: 16px">
       <el-col :span="8">
@@ -75,6 +139,11 @@ onMounted(load);
       </el-col>
     </el-row>
 
+    <el-card v-if="monthlyText" style="margin-bottom: 16px">
+      <h3 style="margin-bottom: 8px">📝 本月总结</h3>
+      <p style="white-space: pre-wrap; font-size: 14px; line-height: 1.9">{{ monthlyText }}</p>
+    </el-card>
+
     <el-row :gutter="16">
       <el-col :span="12">
         <el-card><EChart :option="pieOption" /></el-card>
@@ -83,6 +152,21 @@ onMounted(load);
         <el-card><EChart :option="lineOption" /></el-card>
       </el-col>
     </el-row>
+
+    <el-dialog v-model="walletDialog" title="添加钱包" width="360px">
+      <el-form label-width="70px">
+        <el-form-item label="名称">
+          <el-input v-model="walletForm.name" placeholder="如：微信、支付宝、现金" maxlength="20" />
+        </el-form-item>
+        <el-form-item label="初始余额">
+          <el-input-number v-model="walletForm.balance" :min="0" :precision="2" style="width: 100%" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="walletDialog = false">取消</el-button>
+        <el-button type="primary" @click="addWallet">创建</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -90,4 +174,3 @@ onMounted(load);
 .stat-label { color: #909399; font-size: 13px; }
 .stat-num { font-size: 26px; font-weight: 700; margin-top: 6px; }
 </style>
-

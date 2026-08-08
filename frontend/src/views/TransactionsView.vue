@@ -4,7 +4,7 @@
 import { onMounted, reactive, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import api from "../api";
-import type { Category, Transaction } from "../types";
+import type { Category, Transaction, Wallet } from "../types";
 
 const cur = new Date();
 const month = ref(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`);
@@ -12,6 +12,7 @@ const typeFilter = ref("");
 const keyword = ref("");
 const transactions = ref<Transaction[]>([]);
 const categories = ref<Category[]>([]);
+const wallets = ref<Wallet[]>([]);
 const loading = ref(false);
 
 const dialogVisible = ref(false);
@@ -19,6 +20,7 @@ const editingId = ref<number | null>(null);
 const form = reactive({
   type: "expense" as "income" | "expense",
   category_id: undefined as number | undefined,
+  wallet_id: undefined as number | undefined,
   amount: undefined as number | undefined,
   occurred_at: `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-01`,
   note: "",
@@ -42,11 +44,26 @@ async function loadCategories() {
   categories.value = data;
 }
 
+async function loadWallets() {
+  const { data } = await api.get("/wallets");
+  wallets.value = data;
+  if (!form.wallet_id && wallets.value.length) {
+    form.wallet_id = wallets.value[0].id;
+  }
+}
+
 const typeCategories = () => categories.value.filter((c) => c.type === form.type);
 
 function openCreate() {
   editingId.value = null;
-  Object.assign(form, { type: "expense", category_id: undefined, amount: undefined, note: "", occurred_at: `${month.value}-01` });
+  Object.assign(form, {
+    type: "expense",
+    category_id: undefined,
+    wallet_id: wallets.value[0]?.id,
+    amount: undefined,
+    note: "",
+    occurred_at: `${month.value}-01`,
+  });
   dialogVisible.value = true;
 }
 
@@ -55,6 +72,7 @@ function openEdit(row: Transaction) {
   Object.assign(form, {
     type: row.type,
     category_id: row.category_id,
+    wallet_id: row.wallet_id ?? wallets.value[0]?.id,
     amount: row.amount,
     occurred_at: row.occurred_at,
     note: row.note,
@@ -98,7 +116,7 @@ async function exportCsv() {
 // 类型切换时清空分类选择
 watch(() => form.type, () => { form.category_id = undefined; });
 watch(month, load);
-onMounted(() => { load(); loadCategories(); });
+onMounted(() => { load(); loadCategories(); loadWallets(); });
 </script>
 
 <template>
@@ -134,6 +152,7 @@ onMounted(() => { load(); loadCategories(); });
           </template>
         </el-table-column>
         <el-table-column prop="category_name" label="分类" width="120" />
+        <el-table-column prop="wallet_name" label="钱包" width="100" />
         <el-table-column label="金额" width="140">
           <template #default="{ row }">
             <span :style="{ color: row.type === 'income' ? '#67c23a' : '#f56c6c', fontWeight: 600 }">
@@ -162,6 +181,11 @@ onMounted(() => { load(); loadCategories(); });
         <el-form-item label="分类">
           <el-select v-model="form.category_id" placeholder="选择分类" style="width: 100%">
             <el-option v-for="c in typeCategories()" :key="c.id" :label="c.name" :value="c.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="钱包">
+          <el-select v-model="form.wallet_id" placeholder="选择钱包" style="width: 100%">
+            <el-option v-for="w in wallets" :key="w.id" :label="w.name" :value="w.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="金额">
