@@ -1,8 +1,10 @@
+# 根目录 Dockerfile：供 Zeabur 等部署平台自动识别
+# （内容与 backend/Dockerfile 一致，两者保持同步）
+
 # ===== 阶段一：构建前端 =====
 FROM node:22-alpine AS frontend
 
 WORKDIR /web
-# pnpm 在无终端环境（Docker/CI）下需要确认清理模块目录，这里声明为 CI 环境跳过确认
 ENV CI=true
 RUN corepack enable
 
@@ -20,12 +22,10 @@ WORKDIR /app
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 保持与本地相同的目录结构（backend/app），这样 config.py 里
-# 计算的项目根目录在容器内也是 /app，数据库才能写进挂载的 /app/data
 COPY backend/app ./backend/app
 COPY --from=frontend /web/dist ./backend/app/static
 
 EXPOSE 8000
 
-# 默认 8000（本地/Docker Compose）；平台注入 PORT 时自动切换（如 HF Spaces 的 7860）
+# Zeabur 默认 8000；Hugging Face Spaces 会注入 PORT=7860，两种平台通用
 CMD sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --app-dir backend"
