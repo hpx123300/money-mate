@@ -112,8 +112,8 @@ onMounted(() => {
       <el-button @click="load">刷新</el-button>
     </div>
 
-    <h3 style="margin-bottom: 12px">💰 钱包总览</h3>
-    <el-row :gutter="16" style="margin-bottom: 20px">
+    <h3 style="margin-bottom: 10px">💰 钱包总览</h3>
+    <el-row :gutter="12" style="margin-bottom: 12px">
       <el-col v-for="w in wallets" :key="w.id" :span="6">
         <el-card shadow="hover">
           <div class="stat-label">{{ w.name }}</div>
@@ -129,7 +129,7 @@ onMounted(() => {
       </el-col>
     </el-row>
 
-    <el-row :gutter="16" style="margin-bottom: 16px">
+    <el-row :gutter="12" style="margin-bottom: 12px">
       <el-col :span="8">
         <el-card><div class="stat-label">本月收入</div><div class="stat-num" style="color: #67c23a">¥ {{ summary?.total_income.toFixed(2) ?? "-" }}</div></el-card>
       </el-col>
@@ -141,12 +141,12 @@ onMounted(() => {
       </el-col>
     </el-row>
 
-    <el-card v-if="monthlyText" style="margin-bottom: 16px">
-      <h3 style="margin-bottom: 8px">📝 本月总结</h3>
-      <p style="white-space: pre-wrap; font-size: 14px; line-height: 1.9">{{ monthlyText }}</p>
+    <el-card v-if="monthlyText" style="margin-bottom: 12px">
+      <h3 style="margin-bottom: 6px">📝 本月总结</h3>
+      <p style="white-space: pre-wrap; font-size: 13.5px; line-height: 1.8">{{ monthlyText }}</p>
     </el-card>
 
-    <el-row :gutter="16">
+    <el-row :gutter="12">
       <el-col :span="12">
         <el-card><EChart :option="pieOption" /></el-card>
       </el-col>

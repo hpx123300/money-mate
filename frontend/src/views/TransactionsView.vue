@@ -186,7 +186,7 @@ onMounted(() => { load(); loadCategories(); loadWallets(); });
           </template>
         </el-table-column>
       </el-table>
-      <div style="margin-top: 16px; display: flex; justify-content: flex-end">
+      <div style="margin-top: 12px; display: flex; justify-content: flex-end">
         <el-pagination
           v-model:current-page="page"
           v-model:page-size="pageSize"

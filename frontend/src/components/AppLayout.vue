@@ -21,23 +21,31 @@ function logout() {
 
 <template>
   <el-container style="min-height: 100vh">
-    <el-aside width="200px" style="background: #fff; border-right: 1px solid #e4e7ed">
-      <div style="padding: 20px; font-size: 20px; font-weight: 700">💰 MoneyMate</div>
-      <el-menu :default-active="route.path" router>
-        <el-menu-item index="/dashboard">📊 仪表盘</el-menu-item>
-        <el-menu-item index="/transactions">🧾 记账流水</el-menu-item>
-        <el-menu-item index="/budget">🎯 预算管理</el-menu-item>
-        <el-menu-item index="/categories">🏷️ 分类管理</el-menu-item>
-        <el-menu-item index="/report">🗓️ 年度报告</el-menu-item>
-      </el-menu>
+    <el-aside width="212px" style="padding: 14px 0 14px 14px">
+      <div class="glass" style="height: calc(100vh - 28px); padding: 18px 6px; display: flex; flex-direction: column">
+        <div style="padding: 0 12px 16px; font-size: 19px; font-weight: 700; letter-spacing: -0.01em">
+          💰 MoneyMate
+        </div>
+        <el-menu :default-active="route.path" router>
+          <el-menu-item index="/dashboard">📊 仪表盘</el-menu-item>
+          <el-menu-item index="/transactions">🧾 记账流水</el-menu-item>
+          <el-menu-item index="/budget">🎯 预算管理</el-menu-item>
+          <el-menu-item index="/categories">🏷️ 分类管理</el-menu-item>
+          <el-menu-item index="/report">🗓️ 年度报告</el-menu-item>
+        </el-menu>
+        <div style="flex: 1"></div>
+        <div style="padding: 12px; font-size: 11.5px; color: var(--text-secondary)">
+          v1.0 · 个人全栈项目
+        </div>
+      </div>
     </el-aside>
 
     <el-container>
-      <el-header style="background: #fff; border-bottom: 1px solid #e4e7ed; display: flex; align-items: center; justify-content: flex-end; gap: 12px">
-        <span>👋 {{ auth.user?.username || "加载中…" }}</span>
+      <el-header style="height: 52px; display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 0 20px">
+        <span style="font-size: 13.5px; color: var(--text-secondary)">👋 {{ auth.user?.username || "加载中…" }}</span>
         <el-button size="small" @click="logout">退出登录</el-button>
       </el-header>
-      <el-main>
+      <el-main style="padding: 0">
         <router-view />
       </el-main>
     </el-container>

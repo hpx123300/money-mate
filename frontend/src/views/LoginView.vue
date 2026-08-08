@@ -45,11 +45,11 @@ async function submit() {
 
 <template>
   <div class="login-wrap">
-    <el-card class="login-card">
-      <h1 style="text-align: center; margin-bottom: 4px">💰 MoneyMate</h1>
-      <p style="text-align: center; color: #909399; margin-bottom: 20px">你的私人记账本</p>
+    <div class="glass login-card">
+      <h1 style="text-align: center; margin-bottom: 2px; font-size: 22px; font-weight: 700">💰 MoneyMate</h1>
+      <p style="text-align: center; color: var(--text-secondary); font-size: 13px; margin-bottom: 14px">你的私人记账本</p>
 
-      <el-tabs v-model="mode">
+      <el-tabs v-model="mode" stretch>
         <el-tab-pane label="登录" name="login" />
         <el-tab-pane label="注册" name="register" />
       </el-tabs>
@@ -64,11 +64,11 @@ async function submit() {
         <el-form-item label="密码">
           <el-input v-model="form.password" type="password" show-password placeholder="至少 6 位" @keyup.enter="submit" />
         </el-form-item>
-        <el-button type="primary" style="width: 100%" :loading="loading" @click="submit">
+        <el-button type="primary" style="width: 100%; height: 38px; font-size: 14px" :loading="loading" @click="submit">
           {{ mode === "login" ? "登录" : "注册并登录" }}
         </el-button>
       </el-form>
-    </el-card>
+    </div>
   </div>
 </template>
 
@@ -78,11 +78,9 @@ async function submit() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 .login-card {
   width: 380px;
-  border-radius: 12px;
+  padding: 28px 30px;
 }
 </style>
-
