@@ -9,8 +9,10 @@ import type { Category, Transaction } from "../types";
 const cur = new Date();
 const month = ref(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`);
 const typeFilter = ref("");
+const keyword = ref("");
 const transactions = ref<Transaction[]>([]);
 const categories = ref<Category[]>([]);
+const loading = ref(false);
 
 const dialogVisible = ref(false);
 const editingId = ref<number | null>(null);
@@ -23,10 +25,16 @@ const form = reactive({
 });
 
 async function load() {
+  loading.value = true;
   const params: Record<string, string> = { month: month.value };
   if (typeFilter.value) params.type = typeFilter.value;
-  const { data } = await api.get("/transactions", { params });
-  transactions.value = data;
+  if (keyword.value) params.keyword = keyword.value;
+  try {
+    const { data } = await api.get("/transactions", { params });
+    transactions.value = data;
+  } finally {
+    loading.value = false;
+  }
 }
 
 async function loadCategories() {
@@ -101,13 +109,22 @@ onMounted(() => { load(); loadCategories(); });
         <el-option label="支出" value="expense" />
         <el-option label="收入" value="income" />
       </el-select>
+      <el-input
+        v-model="keyword"
+        placeholder="搜索备注关键词"
+        clearable
+        style="width: 200px"
+        @keyup.enter="load"
+        @clear="load"
+      />
+      <el-button @click="load">搜索</el-button>
       <span class="spacer" />
       <el-button @click="exportCsv">导出 CSV</el-button>
       <el-button type="primary" @click="openCreate">记一笔</el-button>
     </div>
 
     <el-card>
-      <el-table :data="transactions" stripe>
+      <el-table v-loading="loading" :data="transactions" stripe empty-text="本月还没有记账记录，点右上角「记一笔」开始">
         <el-table-column prop="occurred_at" label="日期" width="110" />
         <el-table-column label="类型" width="80">
           <template #default="{ row }">
@@ -164,4 +181,3 @@ onMounted(() => { load(); loadCategories(); });
     </el-dialog>
   </div>
 </template>
-

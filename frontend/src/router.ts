@@ -6,6 +6,7 @@ import AppLayout from "./components/AppLayout.vue";
 import DashboardView from "./views/DashboardView.vue";
 import TransactionsView from "./views/TransactionsView.vue";
 import BudgetView from "./views/BudgetView.vue";
+import CategoriesView from "./views/CategoriesView.vue";
 
 const router = createRouter({
   history: createWebHistory(),
@@ -19,6 +20,7 @@ const router = createRouter({
         { path: "dashboard", component: DashboardView, meta: { requiresAuth: true } },
         { path: "transactions", component: TransactionsView, meta: { requiresAuth: true } },
         { path: "budget", component: BudgetView, meta: { requiresAuth: true } },
+        { path: "categories", component: CategoriesView, meta: { requiresAuth: true } },
       ],
     },
   ],
@@ -36,4 +38,3 @@ router.beforeEach((to) => {
 });
 
 export default router;
-

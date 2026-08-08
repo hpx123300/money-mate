@@ -51,6 +51,46 @@ def create_category(
     return _to_read(category)
 
 
+@router.put("/{category_id}", response_model=CategoryRead)
+def update_category(
+    category_id: int,
+    data: CategoryCreate,
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """编辑分类名称；如果分类下已有流水，不允许改类型（避免数据不一致）。"""
+    category = db.get(Category, category_id)
+    if not category or category.user_id != current.id:
+        raise HTTPException(status_code=404, detail="分类不存在")
+
+    # 同名同类型冲突检查（排除自己）
+    exists = db.exec(
+        select(Category).where(
+            Category.user_id == current.id,
+            Category.name == data.name,
+            Category.type == data.type,
+            Category.id != category_id,
+        )
+    ).first()
+    if exists:
+        raise HTTPException(status_code=400, detail="已存在同名同类型的分类")
+
+    # 有流水的分类禁止改类型，但允许改名字
+    if category.type != data.type:
+        has_tx = db.exec(
+            select(Transaction).where(Transaction.category_id == category_id)
+        ).first()
+        if has_tx:
+            raise HTTPException(status_code=400, detail="该分类下已有流水，不能修改类型")
+
+    category.name = data.name
+    category.type = data.type
+    db.add(category)
+    db.commit()
+    db.refresh(category)
+    return _to_read(category)
+
+
 @router.delete("/{category_id}", status_code=204)
 def delete_category(
     category_id: int,
@@ -67,4 +107,3 @@ def delete_category(
         raise HTTPException(status_code=400, detail="该分类下已有流水，不能删除")
     db.delete(category)
     db.commit()
-

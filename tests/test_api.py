@@ -180,9 +180,60 @@ def test_budget_flow():
         headers=headers,
     )
     assert r.status_code == 200
+    assert r.json()["spent"] == 100  # 保存后立即返回真实支出
     r = client.get(f"/api/budget/{CUR_MONTH}", headers=headers)
     assert r.json()["amount"] == 2000
     assert r.json()["spent"] == 100
+
+
+def test_category_edit_and_rules():
+    user = _register()
+    headers = _login(user["username"])
+
+    # 新建分类
+    r = client.post(
+        "/api/categories",
+        json={"name": "宠物", "type": "expense"},
+        headers=headers,
+    )
+    assert r.status_code == 201
+    cid = r.json()["id"]
+
+    # 改名
+    r = client.put(
+        f"/api/categories/{cid}",
+        json={"name": "宠物用品", "type": "expense"},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    assert r.json()["name"] == "宠物用品"
+
+    # 分类下有流水后：不能改类型、不能删除
+    _add_expense(headers, cid, 10, "猫粮")
+    r = client.put(
+        f"/api/categories/{cid}",
+        json={"name": "宠物用品", "type": "income"},
+        headers=headers,
+    )
+    assert r.status_code == 400
+    assert client.delete(f"/api/categories/{cid}", headers=headers).status_code == 400
+
+
+def test_keyword_search():
+    user = _register()
+    headers = _login(user["username"])
+    food = next(
+        c for c in client.get("/api/categories", headers=headers).json() if c["name"] == "餐饮"
+    )
+    _add_expense(headers, food["id"], 10, "奶茶")
+    _add_expense(headers, food["id"], 20, "外卖")
+
+    r = client.get("/api/transactions?keyword=奶茶", headers=headers)
+    assert len(r.json()) == 1
+    assert r.json()[0]["note"] == "奶茶"
+
+    r = client.get("/api/transactions?keyword=不存在", headers=headers)
+    assert len(r.json()) == 0
 
 
 def test_stats():

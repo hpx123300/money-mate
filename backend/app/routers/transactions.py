@@ -39,6 +39,7 @@ def list_transactions(
     month: str | None = None,      # 2026-08
     type: str | None = None,       # income / expense
     category_id: int | None = None,
+    keyword: str | None = None,    # 备注关键词搜索
     current: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -50,6 +51,8 @@ def list_transactions(
         query = query.where(Transaction.type == type)
     if category_id:
         query = query.where(Transaction.category_id == category_id)
+    if keyword:
+        query = query.where(Transaction.note.contains(keyword))
     rows = db.exec(query.order_by(Transaction.occurred_at.desc(), Transaction.id.desc())).all()
     names = _category_names(db, current.id)
     return [_to_read(t, names) for t in rows]
@@ -145,4 +148,3 @@ def export_csv(
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
-
