@@ -95,7 +95,7 @@ def test_spa_fallback():
         return
     r = client.get("/dashboard")
     assert r.status_code == 200
-    assert "记账小助手" in r.text
+    assert "大学生记账助手" in r.text
 
 
 def test_register_and_default_categories():

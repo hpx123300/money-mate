@@ -74,7 +74,11 @@ docker compose up --build
 
 ```bash
 .venv/bin/python tests/test_api.py
-# 21 通过，0 失败
+# 22 通过，0 失败（接口测试）
+
+# 线上冒烟测试（服务运行中执行，部署后也能用）
+.venv/bin/python tests/test_live.py
+# 32 项检查全部通过
 ```
 
 ## 踩过的坑（都在 docs/开发记录.md 里）
