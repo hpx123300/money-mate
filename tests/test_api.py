@@ -319,6 +319,51 @@ def test_monthly_summary():
     assert "外卖" in text
 
 
+def test_annual_report():
+    user = _register()
+    headers = _login(user["username"])
+    cats = client.get("/api/categories", headers=headers).json()
+    food = next(c for c in cats if c["name"] == "餐饮")
+    salary = next(c for c in cats if c["name"] == "工资")
+
+    # 同年 2 个月的数据 + 一笔奶茶
+    for day in ("01", "15"):
+        client.post(
+            "/api/transactions",
+            json={
+                "category_id": food["id"],
+                "amount": 30,
+                "type": "expense",
+                "note": "奶茶",
+                "occurred_at": f"2026-01-{day}",
+            },
+            headers=headers,
+        )
+    client.post(
+        "/api/transactions",
+        json={
+            "category_id": salary["id"],
+            "amount": 5000,
+            "type": "income",
+            "note": "工资",
+            "occurred_at": "2026-02-01",
+        },
+        headers=headers,
+    )
+
+    r = client.get("/api/stats/annual-report?year=2026", headers=headers)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["year"] == 2026
+    assert data["total_expense"] == 60
+    assert data["total_income"] == 5000
+    assert len(data["monthly"]) == 12
+    assert data["monthly"][0]["expense"] == 60  # 1 月
+    assert data["monthly"][1]["income"] == 5000  # 2 月
+    assert any("奶茶" in f for f in data["fun_facts"])
+    assert data["summary"]
+
+
 def test_stats():
     user = _register()
     headers = _login(user["username"])

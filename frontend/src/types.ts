@@ -58,3 +58,22 @@ export interface TrendPoint {
   income: number;
   expense: number;
 }
+
+export interface AnnualMonthPoint {
+  month: string;
+  income: number;
+  expense: number;
+}
+
+export interface AnnualReport {
+  year: number;
+  total_income: number;
+  total_expense: number;
+  balance: number;
+  expense_by_category: CategoryStat[];
+  monthly: AnnualMonthPoint[];
+  biggest_expense: string;
+  busiest_weekday: string;
+  fun_facts: string[];
+  summary: string;
+}

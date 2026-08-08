@@ -133,3 +133,24 @@ class MonthlySummary(BaseModel):
 
     month: str
     text: str
+
+
+class AnnualMonthPoint(BaseModel):
+    month: str  # 2026-01
+    income: float
+    expense: float
+
+
+class AnnualReport(BaseModel):
+    """年度账单报告：像支付宝年度账单那样的数据叙事"""
+
+    year: int
+    total_income: float
+    total_expense: float
+    balance: float
+    expense_by_category: list[CategoryStat] = []
+    monthly: list[AnnualMonthPoint] = []
+    biggest_expense: str = ""     # 最大单笔描述
+    busiest_weekday: str = ""     # 花钱最多的星期几
+    fun_facts: list[str] = []     # 彩蛋：奶茶点了几次等
+    summary: str = ""             # 年度总结一段话

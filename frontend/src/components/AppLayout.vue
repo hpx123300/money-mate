@@ -28,6 +28,7 @@ function logout() {
         <el-menu-item index="/transactions">🧾 记账流水</el-menu-item>
         <el-menu-item index="/budget">🎯 预算管理</el-menu-item>
         <el-menu-item index="/categories">🏷️ 分类管理</el-menu-item>
+        <el-menu-item index="/report">🗓️ 年度报告</el-menu-item>
       </el-menu>
     </el-aside>
 

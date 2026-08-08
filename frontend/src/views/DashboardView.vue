@@ -108,6 +108,7 @@ onMounted(() => {
     <div class="toolbar">
       <el-date-picker v-model="month" type="month" value-format="YYYY-MM" @change="load" />
       <span class="spacer" />
+      <el-button @click="$router.push('/report')">🗓️ 年度报告</el-button>
       <el-button @click="load">刷新</el-button>
     </div>
 
