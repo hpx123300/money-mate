@@ -1,0 +1,13 @@
+# Render 一键部署配置（免费 Web Service）
+# 用法：render.com → New → Blueprint → 选择本仓库 → Apply
+services:
+  - type: web
+    name: money-mate
+    runtime: docker
+    repo: https://github.com/hpx123300/money-mate
+    branch: main
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
