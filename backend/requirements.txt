@@ -1,0 +1,19 @@
+# ---- Web 框架 ----
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+
+# ---- 数据层 ----
+sqlmodel>=0.0.22
+
+# ---- 认证 ----
+PyJWT>=2.8
+pwdlib[argon2]>=0.2
+email-validator>=2.0
+
+# ---- 配置 ----
+python-dotenv>=1.0
+
+# ---- 测试 ----
+pytest>=8.0
+httpx2>=0.1          # Starlette TestClient 的新依赖
