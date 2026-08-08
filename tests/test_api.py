@@ -88,6 +88,16 @@ def test_health():
     assert r.json()["status"] == "ok"
 
 
+def test_spa_fallback():
+    """前端路由（/dashboard 等）刷新时应返回首页而不是 404（构建产物存在时）。"""
+    static_dir = os.path.join(os.path.dirname(__file__), "..", "backend", "app", "static")
+    if not os.path.isdir(static_dir):
+        return
+    r = client.get("/dashboard")
+    assert r.status_code == 200
+    assert "MoneyMate" in r.text
+
+
 def test_register_and_default_categories():
     user = _register()
     headers = _login(user["username"])
