@@ -149,7 +149,7 @@ def seed_demo(db: Session) -> bool:
         db.add(Category(user_id=user.id, name=name, type=ctype))
 
     wallets = {
-        name: Wallet(user_id=user.id, name=name, balance=0)
+        name: Wallet(user_id=user.id, name=name, balance=300 if name == "现金" else 0)
         for name in ["微信", "支付宝", "现金"]
     }
     for wallet in wallets.values():
