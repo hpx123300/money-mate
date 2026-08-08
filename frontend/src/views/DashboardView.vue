@@ -6,6 +6,7 @@ import { ElMessage } from "element-plus";
 import type { EChartsOption } from "echarts";
 import api from "../api";
 import EChart from "../components/EChart.vue";
+import { formatMoney } from "../utils";
 import type { MonthSummary, TrendPoint, Wallet } from "../types";
 
 const cur = new Date();
@@ -114,14 +115,14 @@ onMounted(() => {
 
     <h3 style="margin-bottom: 10px">💰 钱包总览</h3>
     <el-row :gutter="12" style="margin-bottom: 12px">
-      <el-col v-for="w in wallets" :key="w.id" :span="6">
+      <el-col v-for="w in wallets" :key="w.id" :xs="12" :sm="12" :md="6">
         <el-card shadow="hover">
           <div class="stat-label">{{ w.name }}</div>
-          <div class="stat-num">¥ {{ w.balance.toFixed(2) }}</div>
+          <div class="stat-num">¥ {{ formatMoney(w.balance) }}</div>
           <div class="stat-label">{{ w.transaction_count }} 笔流水</div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="12" :sm="12" :md="6">
         <el-card shadow="never" style="border-style: dashed; text-align: center; cursor: pointer" @click="walletDialog = true">
           <div style="color: #909399; font-size: 28px; line-height: 1.4">＋</div>
           <div style="color: #909399; font-size: 13px">添加钱包</div>
@@ -130,14 +131,14 @@ onMounted(() => {
     </el-row>
 
     <el-row :gutter="12" style="margin-bottom: 12px">
-      <el-col :span="8">
-        <el-card><div class="stat-label">本月收入</div><div class="stat-num" style="color: #67c23a">¥ {{ summary?.total_income.toFixed(2) ?? "-" }}</div></el-card>
+      <el-col :xs="24" :sm="12" :md="8">
+        <el-card><div class="stat-label">本月收入</div><div class="stat-num" style="color: #67c23a">¥ {{ formatMoney(summary?.total_income) }}</div></el-card>
       </el-col>
-      <el-col :span="8">
-        <el-card><div class="stat-label">本月支出</div><div class="stat-num" style="color: #f56c6c">¥ {{ summary?.total_expense.toFixed(2) ?? "-" }}</div></el-card>
+      <el-col :xs="24" :sm="12" :md="8">
+        <el-card><div class="stat-label">本月支出</div><div class="stat-num" style="color: #f56c6c">¥ {{ formatMoney(summary?.total_expense) }}</div></el-card>
       </el-col>
-      <el-col :span="8">
-        <el-card><div class="stat-label">本月结余</div><div class="stat-num">¥ {{ summary?.balance.toFixed(2) ?? "-" }}</div></el-card>
+      <el-col :xs="24" :sm="12" :md="8">
+        <el-card><div class="stat-label">本月结余</div><div class="stat-num">¥ {{ formatMoney(summary?.balance) }}</div></el-card>
       </el-col>
     </el-row>
 
@@ -147,10 +148,10 @@ onMounted(() => {
     </el-card>
 
     <el-row :gutter="12">
-      <el-col :span="12">
+      <el-col :xs="24" :md="12">
         <el-card><EChart :option="pieOption" /></el-card>
       </el-col>
-      <el-col :span="12">
+      <el-col :xs="24" :md="12">
         <el-card><EChart :option="lineOption" /></el-card>
       </el-col>
     </el-row>

@@ -289,6 +289,10 @@ h3 {
   font-weight: 700;
   margin-top: 2px;
   letter-spacing: -0.02em;
+  /* 数字过长时换行而不是被卡片裁掉 */
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  line-height: 1.3;
 }
 
 /* 列表 */
