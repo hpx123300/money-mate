@@ -5,6 +5,7 @@ python-multipart>=0.0.9
 
 # ---- 数据层 ----
 sqlmodel>=0.0.22
+pymysql>=1.1           # MySQL 驱动（README 承诺可切换 MySQL）
 
 # ---- 认证 ----
 PyJWT>=2.8

@@ -1,11 +1,18 @@
 """数据库模块：SQLModel + SQLite（生产可换 MySQL，只改一行配置）。"""
 
+import os
+
 from sqlmodel import SQLModel, Session, create_engine
 
 from .config import settings
 
 # SQLite 需要这个参数允许跨线程访问（FastAPI 线程池）
 connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
+
+# 确保数据目录存在（SQLite 文件默认放这里）
+if settings.database_url.startswith("sqlite"):
+    db_path = settings.database_url.replace("sqlite:///", "")
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
 
 engine = create_engine(
     settings.database_url,
@@ -25,4 +32,3 @@ def get_db():
     """FastAPI 依赖：每个请求一个数据库会话，请求结束自动关闭。"""
     with Session(engine) as session:
         yield session
-

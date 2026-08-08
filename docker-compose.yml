@@ -1,0 +1,14 @@
+services:
+  web:
+    build: .
+    container_name: moneymate-web
+    ports:
+      - "8000:8000"
+    volumes:
+      # 持久化 SQLite 数据库，容器重建数据不丢
+      - moneymate-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  moneymate-data:
+

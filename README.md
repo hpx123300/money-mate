@@ -4,6 +4,18 @@
 
 > 适合写在简历上的个人项目：技术栈主流、功能完整、可独立讲清每一行代码。
 
+![Python](https://img.shields.io/badge/Python-3.12-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688)
+![Vue](https://img.shields.io/badge/Vue-3.5-42b883)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178c6)
+![License](https://img.shields.io/badge/License-MIT-green)
+![CI](https://github.com/你的用户名/money-mate/actions/workflows/ci.yml/badge.svg)
+
+## 📸 演示截图
+
+> 待补充：运行项目后，把「仪表盘」页面截图保存为 `docs/screenshot.png`，然后在下面加一行：
+> `![仪表盘](docs/screenshot.png)`（详见 [部署指南](docs/部署指南.md) 第 4 步）
+
 ---
 
 ## ✨ 功能一览
@@ -26,6 +38,12 @@
 | 数据库 | SQLite（本地零配置，可换 MySQL） |
 | 前端 | Vue 3 · TypeScript · Vite · Pinia · Element Plus · ECharts |
 | 工程 | Docker（两阶段构建）· pytest（11 项测试）· Git |
+
+## ✅ 环境要求
+
+- Python 3.12+
+- Node.js 18+ 与 pnpm（仅前端开发/构建时需要）
+- Docker（可选，用于容器化部署）
 
 ## 🏗️ 系统架构
 
@@ -66,7 +84,9 @@ money-mate/
 ├── tests/test_api.py        # 11 项接口测试
 ├── scripts/                 # 一键启动/构建脚本
 ├── docs/                    # 部署指南 / 简历写法 / 开发记录
-└── docker-compose.yml
+├── .github/workflows/ci.yml # 自动化测试与构建
+├── LICENSE                  # MIT 开源协议
+└── docker-compose.yml       # 一键容器化运行
 ```
 
 ## 🚀 快速开始
@@ -80,7 +100,15 @@ cd money-mate
 
 打开 http://127.0.0.1:8000 使用页面，http://127.0.0.1:8000/docs 查看接口文档。
 
-### 方式二：手动分步
+### 方式二：Docker Compose
+
+```bash
+docker compose up --build
+```
+
+数据库通过 Docker 数据卷持久化，容器重启数据不丢。
+
+### 方式三：手动分步
 
 ```bash
 # 1. 后端
