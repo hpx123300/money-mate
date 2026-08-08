@@ -19,6 +19,7 @@ class Settings:
         # 默认数据库放在项目 data/ 目录，保持仓库整洁
         default_db = f"sqlite:///{os.path.join(BASE_DIR, 'data', 'moneymate.db')}"
         self.database_url = os.getenv("DATABASE_URL", default_db)
+        self.redis_url = os.getenv("REDIS_URL", "")
 
 
 settings = Settings()

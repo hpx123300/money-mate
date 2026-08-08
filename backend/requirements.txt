@@ -6,6 +6,7 @@ python-multipart>=0.0.9
 # ---- 数据层 ----
 sqlmodel>=0.0.22
 pymysql>=1.1           # MySQL 驱动（README 承诺可切换 MySQL）
+redis>=5.0             # 统计接口缓存（未配置时自动用内存缓存）
 
 # ---- 认证 ----
 PyJWT>=2.8

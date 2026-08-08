@@ -165,12 +165,16 @@ def test_transaction_flow():
     )
     assert r.status_code == 400
 
-    # 本月 2 条，上个月 0 条
-    assert len(client.get(f"/api/transactions?month={CUR_MONTH}", headers=headers).json()) == 2
-    assert len(client.get("/api/transactions?month=2020-01", headers=headers).json()) == 0
+    # 本月 2 条，上个月 0 条（分页返回 {total, items}）
+    data = client.get(f"/api/transactions?month={CUR_MONTH}", headers=headers).json()
+    assert data["total"] == 2
+    assert len(data["items"]) == 2
+    data = client.get("/api/transactions?month=2020-01", headers=headers).json()
+    assert data["total"] == 0
+    assert data["items"] == []
 
     # 修改 + 删除
-    tx_id = client.get("/api/transactions", headers=headers).json()[0]["id"]
+    tx_id = client.get("/api/transactions", headers=headers).json()["items"][0]["id"]
     r = client.put(f"/api/transactions/{tx_id}", json={"note": "改备注"}, headers=headers)
     assert r.status_code == 200 and r.json()["note"] == "改备注"
     assert client.delete(f"/api/transactions/{tx_id}", headers=headers).status_code == 204
@@ -239,11 +243,36 @@ def test_keyword_search():
     _add_expense(headers, food["id"], 20, "外卖")
 
     r = client.get("/api/transactions?keyword=奶茶", headers=headers)
-    assert len(r.json()) == 1
-    assert r.json()[0]["note"] == "奶茶"
+    assert r.json()["total"] == 1
+    assert r.json()["items"][0]["note"] == "奶茶"
 
     r = client.get("/api/transactions?keyword=不存在", headers=headers)
-    assert len(r.json()) == 0
+    assert r.json()["total"] == 0
+
+
+def test_pagination():
+    user = _register()
+    headers = _login(user["username"])
+    food = next(
+        c for c in client.get("/api/categories", headers=headers).json() if c["name"] == "餐饮"
+    )
+    # 造 25 笔流水
+    for i in range(25):
+        _add_expense(headers, food["id"], 1, f"第{i}笔")
+
+    # 第一页 10 条
+    data = client.get("/api/transactions?page=1&page_size=10", headers=headers).json()
+    assert data["total"] == 25
+    assert len(data["items"]) == 10
+    assert data["page"] == 1
+
+    # 第三页 5 条（25 - 20）
+    data = client.get("/api/transactions?page=3&page_size=10", headers=headers).json()
+    assert len(data["items"]) == 5
+
+    # 超范围返回空列表
+    data = client.get("/api/transactions?page=99&page_size=10", headers=headers).json()
+    assert data["items"] == []
 
 
 def test_wallet_flow():

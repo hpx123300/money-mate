@@ -85,6 +85,15 @@ class TransactionRead(BaseModel):
     occurred_at: date
 
 
+class TransactionPage(BaseModel):
+    """分页返回：总数 + 当前页数据"""
+
+    total: int
+    page: int
+    page_size: int
+    items: list[TransactionRead]
+
+
 # ============ 预算 ============
 
 

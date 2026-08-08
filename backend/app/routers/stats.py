@@ -5,6 +5,7 @@ from datetime import date
 from fastapi import APIRouter, Depends
 from sqlmodel import Session, func, select
 
+from ..cache import cache
 from ..database import get_db
 from ..deps import get_current_user
 from ..models import Budget, Category, Transaction, User
@@ -46,6 +47,10 @@ def month_summary(
 ):
     """某月收支汇总：总额 + 各分类占比（month 缺省为当月）。"""
     month = month or _month_key(date.today())
+    cache_key = f"stats:{current.id}:summary:{month}"
+    cached = cache.get_json(cache_key)
+    if cached:
+        return MonthSummary(**cached)
     query = select(Transaction).where(
         Transaction.user_id == current.id,
         Transaction.occurred_at.startswith(month),
@@ -74,7 +79,7 @@ def month_summary(
             for cid, amount in sorted(groups.items(), key=lambda x: -x[1])
         ]
 
-    return MonthSummary(
+    result = MonthSummary(
         month=month,
         total_income=round(total_income, 2),
         total_expense=round(total_expense, 2),
@@ -82,6 +87,8 @@ def month_summary(
         income_by_category=by_category("income", total_income),
         expense_by_category=by_category("expense", total_expense),
     )
+    cache.set_json(cache_key, result.model_dump())
+    return result
 
 
 @router.get("/trend", response_model=TrendOut)
@@ -94,6 +101,10 @@ def month_trend(
     months = max(2, min(months, 12))
     current_month = _month_key(date.today())
     wanted = _prev_months(months, current_month)
+    cache_key = f"stats:{current.id}:trend:{months}"
+    cached = cache.get_json(cache_key)
+    if cached:
+        return TrendOut(**cached)
 
     # 一次性查出所有月份数据，再按月份分组（避免 N 次查询）
     rows = db.exec(
@@ -110,7 +121,7 @@ def month_trend(
         target = income_map if t.type == "income" else expense_map
         target[key] = target.get(key, 0) + t.amount
 
-    return TrendOut(
+    result = TrendOut(
         points=[
             TrendPoint(
                 month=m,
@@ -120,6 +131,8 @@ def month_trend(
             for m in wanted
         ]
     )
+    cache.set_json(cache_key, result.model_dump())
+    return result
 
 
 @router.get("/monthly-summary", response_model=MonthlySummary)
@@ -134,6 +147,10 @@ def monthly_summary(
     不用 LLM，零成本，逻辑完全可解释。
     """
     month = month or _month_key(date.today())
+    cache_key = f"stats:{current.id}:monthly:{month}"
+    cached = cache.get_json(cache_key)
+    if cached:
+        return MonthlySummary(**cached)
     rows = db.exec(
         select(Transaction).where(
             Transaction.user_id == current.id,
@@ -200,7 +217,9 @@ def monthly_summary(
     else:
         lines.append("总体健康，继续保持！")
 
-    return MonthlySummary(month=month, text="\n".join(lines))
+    result = MonthlySummary(month=month, text="\n".join(lines))
+    cache.set_json(cache_key, result.model_dump())
+    return result
 
 
 @router.get("/annual-report", response_model=AnnualReport)
@@ -214,6 +233,10 @@ def annual_report(
     灵感来自支付宝年度账单，纯规则生成，零成本。
     """
     year = year or date.today().year
+    cache_key = f"stats:{current.id}:annual:{year}"
+    cached = cache.get_json(cache_key)
+    if cached:
+        return AnnualReport(**cached)
     rows = db.exec(
         select(Transaction).where(
             Transaction.user_id == current.id,
@@ -307,7 +330,7 @@ def annual_report(
         else:
             summary = f"{year} 年结余 ¥{balance:.2f}，消费率 {rate:.0f}%，控制得不错，明年继续保持！"
 
-    return AnnualReport(
+    result = AnnualReport(
         year=year,
         total_income=round(income, 2),
         total_expense=round(expense, 2),
@@ -319,3 +342,5 @@ def annual_report(
         fun_facts=fun_facts,
         summary=summary,
     )
+    cache.set_json(cache_key, result.model_dump())
+    return result

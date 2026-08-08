@@ -5,12 +5,13 @@ import io
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
+from ..cache import cache
 from ..database import get_db
 from ..deps import get_current_user
 from ..models import Category, Transaction, User, Wallet
-from ..schemas import TransactionCreate, TransactionRead, TransactionUpdate
+from ..schemas import TransactionCreate, TransactionPage, TransactionRead, TransactionUpdate
 
 router = APIRouter(prefix="/api/transactions", tags=["流水"])
 
@@ -47,32 +48,52 @@ def _wallet_names(db: Session, user_id: int) -> dict[int, str]:
     }
 
 
-@router.get("", response_model=list[TransactionRead])
+@router.get("", response_model=TransactionPage)
 def list_transactions(
     month: str | None = None,      # 2026-08
     type: str | None = None,       # income / expense
     category_id: int | None = None,
     wallet_id: int | None = None,
     keyword: str | None = None,    # 备注关键词搜索
+    page: int = 1,
+    page_size: int = 20,
     current: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """流水列表，支持按月份/类型/分类筛选。"""
-    query = select(Transaction).where(Transaction.user_id == current.id)
+    """
+    流水列表，支持筛选 + 分页。
+    分页是生产接口的标配：数据量大时一次只取一页，前端翻页再取。
+    """
+    page = max(1, page)
+    page_size = max(1, min(page_size, 100))
+    conditions = [Transaction.user_id == current.id]
     if month:
-        query = query.where(Transaction.occurred_at.startswith(month))
+        conditions.append(Transaction.occurred_at.startswith(month))
     if type:
-        query = query.where(Transaction.type == type)
+        conditions.append(Transaction.type == type)
     if category_id:
-        query = query.where(Transaction.category_id == category_id)
+        conditions.append(Transaction.category_id == category_id)
     if wallet_id:
-        query = query.where(Transaction.wallet_id == wallet_id)
+        conditions.append(Transaction.wallet_id == wallet_id)
     if keyword:
-        query = query.where(Transaction.note.contains(keyword))
-    rows = db.exec(query.order_by(Transaction.occurred_at.desc(), Transaction.id.desc())).all()
+        conditions.append(Transaction.note.contains(keyword))
+
+    total = db.exec(select(func.count(Transaction.id)).where(*conditions)).one()
+    rows = db.exec(
+        select(Transaction)
+        .where(*conditions)
+        .order_by(Transaction.occurred_at.desc(), Transaction.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    ).all()
     names = _category_names(db, current.id)
     wallets = _wallet_names(db, current.id)
-    return [_to_read(t, names, wallets) for t in rows]
+    return TransactionPage(
+        total=total or 0,
+        page=page,
+        page_size=page_size,
+        items=[_to_read(t, names, wallets) for t in rows],
+    )
 
 
 @router.post("", response_model=TransactionRead, status_code=201)
@@ -103,6 +124,8 @@ def create_transaction(
     db.add(t)
     db.commit()
     db.refresh(t)
+    # 数据变了，清掉该用户的统计缓存
+    cache.delete_prefix(f"stats:{current.id}:")
     return _to_read(t, _category_names(db, current.id), _wallet_names(db, current.id))
 
 
@@ -126,6 +149,7 @@ def update_transaction(
     db.add(t)
     db.commit()
     db.refresh(t)
+    cache.delete_prefix(f"stats:{current.id}:")
     return _to_read(t, _category_names(db, current.id), _wallet_names(db, current.id))
 
 
@@ -140,6 +164,7 @@ def delete_transaction(
         raise HTTPException(status_code=404, detail="流水不存在")
     db.delete(t)
     db.commit()
+    cache.delete_prefix(f"stats:{current.id}:")
 
 
 @router.get("/export")

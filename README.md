@@ -12,6 +12,7 @@
 - **注册登录**：注册完自动带一套常用分类（餐饮、交通、工资那些），不用自己配
 - **记一笔**：选分类、选钱包、填金额和备注
 - **多钱包**：微信、支付宝、现金分开记，余额自动帮你算
+- **分页浏览**：流水再多也不卡，翻页加载
 - **分类管理**：默认 11 个分类，也能自己加、改、删
 - **预算**：每月定个预算，花超了会提醒
 - **统计图表**：仪表盘上有饼图（钱都花哪了）和近 6 个月收支趋势
@@ -24,6 +25,8 @@
 后端：Python 3.12 · FastAPI · SQLModel · JWT（Argon2 加密密码）
 
 数据库：SQLite（本地开箱即用，`DATABASE_URL` 改一行就能换 MySQL）
+
+缓存：统计接口带 Redis 缓存（没配 Redis 时自动用内存缓存）
 
 前端：Vue 3 · TypeScript · Vite · Pinia · Element Plus · ECharts
 
@@ -69,7 +72,7 @@ docker compose up --build
 
 ```bash
 .venv/bin/python tests/test_api.py
-# 13 通过，0 失败
+# 16 通过，0 失败
 ```
 
 ## 踩过的坑（都在 docs/开发记录.md 里）

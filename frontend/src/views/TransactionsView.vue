@@ -14,6 +14,9 @@ const transactions = ref<Transaction[]>([]);
 const categories = ref<Category[]>([]);
 const wallets = ref<Wallet[]>([]);
 const loading = ref(false);
+const page = ref(1);
+const pageSize = ref(20);
+const total = ref(0);
 
 const dialogVisible = ref(false);
 const editingId = ref<number | null>(null);
@@ -28,15 +31,30 @@ const form = reactive({
 
 async function load() {
   loading.value = true;
-  const params: Record<string, string> = { month: month.value };
+  const params: Record<string, string | number> = {
+    month: month.value,
+    page: page.value,
+    page_size: pageSize.value,
+  };
   if (typeFilter.value) params.type = typeFilter.value;
   if (keyword.value) params.keyword = keyword.value;
   try {
     const { data } = await api.get("/transactions", { params });
-    transactions.value = data;
+    transactions.value = data.items;
+    total.value = data.total;
   } finally {
     loading.value = false;
   }
+}
+
+function onFilterChange() {
+  page.value = 1;
+  load();
+}
+
+function onSizeChange() {
+  page.value = 1;
+  load();
 }
 
 async function loadCategories() {
@@ -115,7 +133,7 @@ async function exportCsv() {
 
 // 类型切换时清空分类选择
 watch(() => form.type, () => { form.category_id = undefined; });
-watch(month, load);
+watch(month, onFilterChange);
 onMounted(() => { load(); loadCategories(); loadWallets(); });
 </script>
 
@@ -123,7 +141,7 @@ onMounted(() => { load(); loadCategories(); loadWallets(); });
   <div class="page">
     <div class="toolbar">
       <el-date-picker v-model="month" type="month" value-format="YYYY-MM" />
-      <el-select v-model="typeFilter" placeholder="全部类型" clearable style="width: 140px" @change="load">
+      <el-select v-model="typeFilter" placeholder="全部类型" clearable style="width: 140px" @change="onFilterChange">
         <el-option label="支出" value="expense" />
         <el-option label="收入" value="income" />
       </el-select>
@@ -132,10 +150,10 @@ onMounted(() => { load(); loadCategories(); loadWallets(); });
         placeholder="搜索备注关键词"
         clearable
         style="width: 200px"
-        @keyup.enter="load"
-        @clear="load"
+        @keyup.enter="onFilterChange"
+        @clear="onFilterChange"
       />
-      <el-button @click="load">搜索</el-button>
+      <el-button @click="onFilterChange">搜索</el-button>
       <span class="spacer" />
       <el-button @click="exportCsv">导出 CSV</el-button>
       <el-button type="primary" @click="openCreate">记一笔</el-button>
@@ -168,6 +186,17 @@ onMounted(() => { load(); loadCategories(); loadWallets(); });
           </template>
         </el-table-column>
       </el-table>
+      <div style="margin-top: 16px; display: flex; justify-content: flex-end">
+        <el-pagination
+          v-model:current-page="page"
+          v-model:page-size="pageSize"
+          :total="total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next"
+          @current-change="load"
+          @size-change="onSizeChange"
+        />
+      </div>
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="editingId ? '编辑流水' : '记一笔'" width="420px">
