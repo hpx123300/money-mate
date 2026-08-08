@@ -46,7 +46,7 @@ async function submit() {
 <template>
   <div class="login-wrap">
     <div class="glass login-card">
-      <h1 style="text-align: center; margin-bottom: 2px; font-size: 22px; font-weight: 700">💰 MoneyMate</h1>
+      <h1 style="text-align: center; margin-bottom: 2px; font-size: 22px; font-weight: 700">💰 记账小助手</h1>
       <p style="text-align: center; color: var(--text-secondary); font-size: 13px; margin-bottom: 14px">你的私人记账本</p>
 
       <el-tabs v-model="mode" stretch>
