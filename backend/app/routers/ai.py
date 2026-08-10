@@ -6,6 +6,7 @@
 
 import json
 from datetime import date
+from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
@@ -14,6 +15,7 @@ from .. import llm
 from ..database import get_db
 from ..deps import get_current_user
 from ..models import Category, Transaction, User, Wallet
+from ..rate_limit import rate_limit
 from ..schemas import (
     AiCategoryRequest,
     AiCategoryResult,
@@ -51,6 +53,7 @@ def ai_parse_transaction(
     db: Session = Depends(get_db),
 ):
     """输入「今天午饭花了25」，解析出类型/金额/分类/钱包，返回可确认的草稿。"""
+    rate_limit(current.id, "ai_parse", limit=20)
     categories = db.exec(
         select(Category).where(Category.user_id == current.id).order_by(Category.id)
     ).all()
@@ -82,9 +85,9 @@ def ai_parse_transaction(
 
     type_ = raw.get("type") if raw.get("type") in ("expense", "income") else "expense"
     try:
-        amount = round(float(raw.get("amount", 0)), 2)
-    except (TypeError, ValueError):
-        amount = 0
+        amount = round(Decimal(str(raw.get("amount", 0))), 2)
+    except (TypeError, ValueError, InvalidOperation):
+        amount = Decimal("0")
     if amount <= 0:
         raise HTTPException(status_code=422, detail="没识别出金额，请说得更具体些，比如「午饭花了 25」")
 
@@ -122,6 +125,7 @@ def ai_suggest_category(
     db: Session = Depends(get_db),
 ):
     """根据备注推荐分类（记账弹窗里用）。"""
+    rate_limit(current.id, "ai_suggest", limit=30)
     categories = db.exec(
         select(Category).where(Category.user_id == current.id).order_by(Category.id)
     ).all()
@@ -150,6 +154,7 @@ def ai_monthly_summary(
     db: Session = Depends(get_db),
 ):
     """对这个月的账单生成一段人话分析总结。"""
+    rate_limit(current.id, "ai_summary", limit=5)
     rows = db.exec(
         select(Transaction, Category).join(Category, Transaction.category_id == Category.id).where(
             Transaction.user_id == current.id,
@@ -160,10 +165,10 @@ def ai_monthly_summary(
         raise HTTPException(status_code=404, detail="这个月还没有账单，先去记几笔吧")
 
     by_cat: dict[str, dict] = {}
-    total_income = 0.0
-    total_expense = 0.0
+    total_income = Decimal("0")
+    total_expense = Decimal("0")
     for tx, cat in rows:
-        by_cat.setdefault(cat.name, {"count": 0, "amount": 0.0, "type": cat.type})
+        by_cat.setdefault(cat.name, {"count": 0, "amount": Decimal("0"), "type": cat.type})
         by_cat[cat.name]["count"] += 1
         by_cat[cat.name]["amount"] += tx.amount
         if tx.type == "income":
@@ -191,3 +196,62 @@ def ai_monthly_summary(
     except llm.LLMError as e:
         raise _llm_unavailable(e)
     return AiSummaryResult(month=month, summary=text)
+
+
+@router.get("/monthly-summary/stream")
+def ai_monthly_summary_stream(
+    month: str,
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """流式版月度分析：SSE 逐块推送，前端可实时渲染打字效果。"""
+    rate_limit(current.id, "ai_summary", limit=5)
+
+    from fastapi.responses import StreamingResponse
+
+    def generate():
+        rows = db.exec(
+            select(Transaction, Category).join(Category, Transaction.category_id == Category.id).where(
+                Transaction.user_id == current.id,
+                Transaction.occurred_at.startswith(month),
+            )
+        ).all()
+        if not rows:
+            yield "data: {\"error\": \"这个月还没有账单，先去记几笔吧\"}\n\n"
+            return
+
+        by_cat: dict[str, dict] = {}
+        total_income = Decimal("0")
+        total_expense = Decimal("0")
+        for tx, cat in rows:
+            by_cat.setdefault(cat.name, {"count": 0, "amount": Decimal("0"), "type": cat.type})
+            by_cat[cat.name]["count"] += 1
+            by_cat[cat.name]["amount"] += tx.amount
+            if tx.type == "income":
+                total_income += tx.amount
+            else:
+                total_expense += tx.amount
+
+        top_expense = sorted(
+            [(k, v) for k, v in by_cat.items() if v["type"] == "expense"],
+            key=lambda kv: kv[1]["amount"],
+            reverse=True,
+        )[:3]
+        summary = (
+            f"月份：{month}；总收入 {total_income:.2f} 元；总支出 {total_expense:.2f} 元；"
+            f"支出最多的分类：{', '.join(f'{k} {v['amount']:.2f} 元（{v['count']} 笔）' for k, v in top_expense)}；"
+            f"总笔数：{len(rows)}"
+        )
+        prompt = f"""这是某大学生 {month} 月的消费数据：
+{summary}
+请用 100~150 字、口语化的中文，像朋友聊天一样分析这个月的消费：钱主要花在哪、有没有浪费、
+有什么省钱建议。不要用列表，不要提"AI"。
+"""
+        try:
+            for chunk in llm.chat_text_stream(prompt, "你是一个懂大学生生活的省钱顾问，语气轻松自然。"):
+                yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+        except llm.LLMError as e:
+            yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
