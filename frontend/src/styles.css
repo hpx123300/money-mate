@@ -1,10 +1,11 @@
 /* ============================================================
-   MoneyMate 全局样式 · Apple Liquid Glass 风格
+   MoneyMate 全局样式 · Apple Liquid Glass + Premium Finance
    设计要点：
    1. 半透明磨砂卡片（backdrop-filter 模糊 + 高饱和）
-   2. 彩色光晕背景（径向渐变光斑）
-   3. 系统字体 + 统一字号层级
-   4. 紧凑布局，减少空白
+   2. 紫蓝渐变主色调（#667eea → #764ba2）营造金融产品质感
+   3. 统一收支配色：绿（收入）/橙红（支出）/紫（结余）
+   4. 系统字体 + tabular-nums 数字对齐
+   5. 微交互：卡片 hover 上浮、过渡动画
    ============================================================ */
 
 :root {
@@ -14,11 +15,18 @@
   --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.12);
   --text-primary: #1d1d1f;
   --text-secondary: #6e6e73;
-  --accent: #0071e3;
-  --accent-soft: rgba(0, 113, 227, 0.12);
+  /* 主色：紫蓝渐变，金融产品质感 */
+  --accent: #667eea;
+  --accent-2: #764ba2;
+  --accent-soft: rgba(102, 126, 234, 0.12);
+  --accent-gradient: linear-gradient(135deg, #667eea, #764ba2);
   --success: #34c759;
   --danger: #ff3b30;
   --warn: #ff9500;
+  /* 收支配色：统一视觉语言 */
+  --income-color: #00b894;
+  --expense-color: #e17055;
+  --balance-color: #667eea;
   --radius-lg: 18px;
   --radius-md: 12px;
   --radius-sm: 8px;
@@ -40,18 +48,33 @@ body {
     "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   font-size: 14px;
   color: var(--text-primary);
-  background: #f2f3f5;
+  background: #f0f2f5;
   -webkit-font-smoothing: antialiased;
   line-height: 1.55;
+  font-feature-settings: "tnum" 0;
 }
 
-/* 简洁纯色背景：去掉花哨光晕，观感更实在 */
+/* 渐变背景 + 微妙网格底纹：营造真实产品的层次感 */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
+  z-index: -2;
+  background:
+    linear-gradient(135deg, #f0f2f5 0%, #e8eaf0 100%);
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
   z-index: -1;
-  background: #f2f3f5;
+  pointer-events: none;
+  background-image:
+    radial-gradient(at 20% 10%, rgba(102, 126, 234, 0.06) 0px, transparent 50%),
+    radial-gradient(at 80% 90%, rgba(118, 75, 162, 0.05) 0px, transparent 50%),
+    radial-gradient(at 90% 20%, rgba(0, 184, 148, 0.04) 0px, transparent 40%);
+  opacity: 1;
 }
 
 /* ---------- 玻璃工具类 ---------- */
@@ -62,6 +85,56 @@ body::before {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--glass-shadow);
+}
+
+/* ---------- 渐变文字工具类 ---------- */
+.gradient-text {
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  font-weight: 700;
+}
+
+/* ---------- 统计卡片：带颜色左边框的语义化样式 ---------- */
+.stat-card-income {
+  border-left: 4px solid var(--income-color) !important;
+  background: linear-gradient(135deg, rgba(0, 184, 148, 0.06), var(--glass-bg)) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.stat-card-income:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 36px rgba(0, 184, 148, 0.18);
+}
+.stat-card-income .stat-num {
+  color: var(--income-color) !important;
+}
+
+.stat-card-expense {
+  border-left: 4px solid var(--expense-color) !important;
+  background: linear-gradient(135deg, rgba(225, 112, 85, 0.06), var(--glass-bg)) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.stat-card-expense:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 36px rgba(225, 112, 85, 0.18);
+}
+.stat-card-expense .stat-num {
+  color: var(--expense-color) !important;
+}
+
+.stat-card-balance {
+  border-left: 4px solid var(--balance-color) !important;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), var(--glass-bg)) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.stat-card-balance:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 36px rgba(102, 126, 234, 0.18);
+}
+.stat-card-balance .stat-num {
+  color: var(--balance-color) !important;
 }
 
 /* ---------- 布局 ---------- */
@@ -91,10 +164,14 @@ body::before {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--glass-shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 .el-card.is-always-shadow,
 .el-card.is-hover-shadow:hover {
-  box-shadow: var(--glass-shadow);
+  box-shadow: 0 12px 36px rgba(31, 38, 135, 0.18);
+}
+.el-card.is-hover-shadow:hover {
+  transform: translateY(-2px);
 }
 .el-card__body {
   padding: 16px;
@@ -106,7 +183,7 @@ body::before {
   --el-table-tr-bg-color: transparent;
   --el-table-header-bg-color: transparent;
   --el-table-border-color: rgba(255, 255, 255, 0.35);
-  --el-table-row-hover-bg-color: rgba(255, 255, 255, 0.45);
+  --el-table-row-hover-bg-color: rgba(102, 126, 234, 0.06);
   background: transparent;
   font-size: 13px;
 }
@@ -114,9 +191,16 @@ body::before {
   color: var(--text-secondary);
   font-weight: 600;
   font-size: 12.5px;
+  background: rgba(102, 126, 234, 0.04) !important;
 }
 .el-table td.el-table__cell {
   color: var(--text-primary);
+}
+.el-table__row {
+  transition: background 0.2s ease;
+}
+.el-table__body tr:hover > td.el-table__cell {
+  background: rgba(102, 126, 234, 0.08) !important;
 }
 
 /* 对话框 */
@@ -145,10 +229,11 @@ body::before {
   margin: 2px 8px;
   height: 40px;
   line-height: 40px;
+  transition: all 0.2s ease;
 }
 .el-menu-item:hover {
-  background: rgba(255, 255, 255, 0.5);
-  color: var(--text-primary);
+  background: rgba(102, 126, 234, 0.08);
+  color: var(--accent);
 }
 .el-menu-item.is-active {
   background: var(--accent-soft);
@@ -171,7 +256,7 @@ body::before {
 .el-input__wrapper.is-focus,
 .el-select__wrapper.is-focused,
 .el-textarea__inner:focus {
-  box-shadow: 0 0 0 2px rgba(0, 113, 227, 0.35) inset !important;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.35) inset !important;
 }
 
 /* 按钮 */
@@ -179,14 +264,17 @@ body::before {
   border-radius: var(--radius-md);
   font-size: 13.5px;
   font-weight: 500;
+  transition: all 0.2s ease;
 }
 .el-button--primary {
   background: var(--accent);
   border-color: var(--accent);
 }
 .el-button--primary:hover {
-  background: #0077ed;
-  border-color: #0077ed;
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(102, 126, 234, 0.35);
 }
 .el-button:not(.el-button--primary):not(.el-button--danger) {
   background: rgba(255, 255, 255, 0.55);
@@ -196,12 +284,24 @@ body::before {
 .el-button:not(.el-button--primary):not(.el-button--danger):hover {
   background: rgba(255, 255, 255, 0.8);
   color: var(--accent);
+  border-color: rgba(102, 126, 234, 0.4);
 }
 
 /* 标签 / 单选按钮组 */
 .el-tag {
   border-radius: 999px;
   font-size: 12px;
+  font-weight: 600;
+}
+.el-tag--success {
+  background: rgba(0, 184, 148, 0.12);
+  color: var(--income-color);
+  border-color: rgba(0, 184, 148, 0.25);
+}
+.el-tag--danger {
+  background: rgba(225, 112, 85, 0.12);
+  color: var(--expense-color);
+  border-color: rgba(225, 112, 85, 0.25);
 }
 .el-radio-button__inner {
   background: rgba(255, 255, 255, 0.4);
@@ -274,7 +374,7 @@ h3 {
   font-size: 12.5px;
 }
 
-/* 统计数字 */
+/* 统计数字：使用 tabular-nums 对齐 */
 .stat-label {
   color: var(--text-secondary);
   font-size: 12.5px;
@@ -284,6 +384,8 @@ h3 {
   font-weight: 700;
   margin-top: 2px;
   letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
   /* 数字过长时换行而不是被卡片裁掉 */
   overflow-wrap: anywhere;
   word-break: break-all;
