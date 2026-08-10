@@ -3,7 +3,7 @@
 import logging
 import os
 
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlmodel import SQLModel, Session, create_engine, select, update
 
 from .config import settings
@@ -41,12 +41,12 @@ def _migrate() -> None:
     轻量迁移：给旧版本已有的 transaction 表补上 wallet_id 列。
     生产项目应该用 Alembic 管理迁移，这里是教学项目的最小实现。
     """
-    with engine.begin() as conn:
-        cols = {
-            row[1]
-            for row in conn.execute(text('PRAGMA table_info("transaction")')).fetchall()
-        }
-        if "wallet_id" not in cols:
+    inspector = inspect(engine)
+    if "transaction" not in inspector.get_table_names():
+        return  # 全新数据库，create_all 已建好，无需迁移
+    cols = {c["name"] for c in inspector.get_columns("transaction")}
+    if "wallet_id" not in cols:
+        with engine.begin() as conn:
             conn.execute(
                 text('ALTER TABLE "transaction" ADD COLUMN wallet_id INTEGER REFERENCES wallet(id)')
             )
