@@ -127,10 +127,44 @@ async function aiAnalyze() {
   aiSummaryLoading.value = true;
   aiSummary.value = "";
   try {
-    const { data } = await api.get(`/ai/monthly-summary?month=${month.value}`);
-    aiSummary.value = data.summary;
-  } catch (e: any) {
-    ElMessage.error(e.response?.data?.detail || "AI 分析失败，请稍后再试");
+    const token = localStorage.getItem("token");
+    const resp = await fetch(`/api/ai/monthly-summary/stream?month=${month.value}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: "AI 分析失败" }));
+      ElMessage.error(err.detail || "AI 分析失败");
+      return;
+    }
+    const reader = resp.body!.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop() || "";
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const payload = line.slice(6).trim();
+        if (payload === "[DONE]") return;
+        try {
+          const obj = JSON.parse(payload);
+          if (obj.error) {
+            ElMessage.error(obj.error);
+            return;
+          }
+          if (obj.content) {
+            aiSummary.value += obj.content;
+          }
+        } catch {
+          // 忽略不完整行
+        }
+      }
+    }
+  } catch {
+    ElMessage.error("AI 分析失败，请稍后再试");
   } finally {
     aiSummaryLoading.value = false;
   }
@@ -201,9 +235,9 @@ onMounted(() => {
       <el-button @click="load">刷新</el-button>
     </div>
 
-    <el-card style="margin-bottom: 12px">
+    <el-card class="ai-card" style="margin-bottom: 12px">
       <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
-        <span style="font-weight: 600">✨ AI 记账小助手</span>
+        <span class="ai-badge">✨ AI 记账小助手</span>
         <el-input
           v-model="aiText"
           placeholder="说一句话就能记账，比如「今天午饭花了 25」"
@@ -215,61 +249,90 @@ onMounted(() => {
       </div>
     </el-card>
 
-    <el-card v-if="allowance && allowance.amount > 0" style="margin-bottom: 12px">
-      <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 20px">
-        <div>
-          <div class="stat-label">🎓 本月生活费</div>
-          <div class="stat-num">¥ {{ formatMoney(allowance.amount) }}</div>
+    <el-card v-if="allowance && allowance.amount > 0" class="allowance-card" style="margin-bottom: 12px">
+      <div class="allowance-header">
+        <div class="allowance-stats">
+          <div>
+            <div class="stat-label">🎓 本月生活费</div>
+            <div class="stat-num">¥ {{ formatMoney(allowance.amount) }}</div>
+          </div>
+          <div>
+            <div class="stat-label">已花</div>
+            <div class="stat-num expense-num">¥ {{ formatMoney(allowance.spent) }}</div>
+          </div>
+          <div>
+            <div class="stat-label">剩余</div>
+            <div class="stat-num income-num">¥ {{ formatMoney(allowance.remaining) }}</div>
+          </div>
+          <div>
+            <div class="stat-label">日均可用（剩 {{ allowance.days_left }} 天）</div>
+            <div class="stat-num">¥ {{ formatMoney(allowance.daily_budget) }}</div>
+          </div>
         </div>
-        <div>
-          <div class="stat-label">已花</div>
-          <div class="stat-num" style="color: var(--danger)">¥ {{ formatMoney(allowance.spent) }}</div>
-        </div>
-        <div>
-          <div class="stat-label">剩余</div>
-          <div class="stat-num" style="color: var(--success)">¥ {{ formatMoney(allowance.remaining) }}</div>
-        </div>
-        <div>
-          <div class="stat-label">日均可用（剩 {{ allowance.days_left }} 天）</div>
-          <div class="stat-num">¥ {{ formatMoney(allowance.daily_budget) }}</div>
-        </div>
-        <div style="flex: 1"></div>
         <el-button link type="primary" @click="$router.push('/budget')">管理生活费 →</el-button>
       </div>
+      <div class="allowance-progress">
+        <div class="progress-meta">
+          <span>本月使用进度</span>
+          <span class="progress-percent">{{ Math.min(100, Math.round((allowance.spent / allowance.amount) * 100)) }}%</span>
+        </div>
+        <el-progress
+          :percentage="Math.min(100, Math.round((allowance.spent / allowance.amount) * 100))"
+          :color="(allowance.spent / allowance.amount) >= 0.9 ? '#e17055' : (allowance.spent / allowance.amount) >= 0.7 ? '#ff9500' : '#00b894'"
+          :stroke-width="10"
+          :show-text="false"
+        />
+      </div>
     </el-card>
-    <el-card v-else style="margin-bottom: 12px; border-style: dashed">
+    <el-card v-else class="empty-allowance" style="margin-bottom: 12px">
       <div style="display: flex; align-items: center; gap: 12px">
-        <span>🎓 还没设置每月生活费？设置后帮你算「钱还能撑几天」</span>
+        <span class="empty-icon">🎓</span>
+        <div style="flex: 1">
+          <div style="font-weight: 600; font-size: 14px">还没设置每月生活费</div>
+          <div class="hint" style="margin-top: 2px">设置后帮你算「钱还能撑几天」</div>
+        </div>
         <el-button size="small" type="primary" @click="$router.push('/budget')">去设置</el-button>
       </div>
     </el-card>
 
-    <h3 style="margin-bottom: 10px">💰 钱包总览</h3>
+    <h3 class="section-title" style="margin-bottom: 10px">💰 钱包总览</h3>
     <el-row :gutter="12" style="margin-bottom: 12px">
       <el-col v-for="w in wallets" :key="w.id" :xs="12" :sm="12" :md="6">
-        <el-card shadow="hover">
-          <div class="stat-label">{{ w.name }}</div>
+        <el-card shadow="hover" class="wallet-card">
+          <div class="wallet-name">
+            <span class="wallet-icon">💰</span>
+            <span class="stat-label">{{ w.name }}</span>
+          </div>
           <div class="stat-num">¥ {{ formatMoney(w.balance) }}</div>
-          <div class="stat-label">{{ w.transaction_count }} 笔流水</div>
+          <div class="wallet-meta">{{ w.transaction_count }} 笔流水</div>
         </el-card>
       </el-col>
       <el-col :xs="12" :sm="12" :md="6">
-        <el-card shadow="never" style="border-style: dashed; text-align: center; cursor: pointer" @click="walletDialog = true">
-          <div style="color: #909399; font-size: 28px; line-height: 1.4">＋</div>
-          <div style="color: #909399; font-size: 13px">添加钱包</div>
+        <el-card shadow="never" class="add-wallet-card" @click="walletDialog = true">
+          <div class="add-wallet-icon">＋</div>
+          <div class="add-wallet-text">添加钱包</div>
         </el-card>
       </el-col>
     </el-row>
 
     <el-row :gutter="12" style="margin-bottom: 12px">
       <el-col :xs="24" :sm="12" :md="8">
-        <el-card><div class="stat-label">本月收入</div><div class="stat-num" style="color: #67c23a">¥ {{ formatMoney(summary?.total_income) }}</div></el-card>
+        <el-card class="stat-card-income">
+          <div class="stat-label">💰 本月收入</div>
+          <div class="stat-num">¥ {{ formatMoney(summary?.total_income) }}</div>
+        </el-card>
       </el-col>
       <el-col :xs="24" :sm="12" :md="8">
-        <el-card><div class="stat-label">本月支出</div><div class="stat-num" style="color: #f56c6c">¥ {{ formatMoney(summary?.total_expense) }}</div></el-card>
+        <el-card class="stat-card-expense">
+          <div class="stat-label">🧾 本月支出</div>
+          <div class="stat-num">¥ {{ formatMoney(summary?.total_expense) }}</div>
+        </el-card>
       </el-col>
       <el-col :xs="24" :sm="12" :md="8">
-        <el-card><div class="stat-label">本月结余</div><div class="stat-num">¥ {{ formatMoney(summary?.balance) }}</div></el-card>
+        <el-card class="stat-card-balance">
+          <div class="stat-label">📊 本月结余</div>
+          <div class="stat-num">¥ {{ formatMoney(summary?.balance) }}</div>
+        </el-card>
       </el-col>
     </el-row>
 
@@ -353,6 +416,145 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.stat-label { color: #909399; font-size: 13px; }
-.stat-num { font-size: 26px; font-weight: 700; margin-top: 6px; }
+.stat-label { color: var(--text-secondary); font-size: 13px; }
+.stat-num {
+  font-size: 26px;
+  font-weight: 700;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ---------- AI 卡片：渐变光晕 ---------- */
+.ai-card {
+  position: relative;
+  border: 1px solid transparent !important;
+  background:
+    linear-gradient(var(--glass-bg), var(--glass-bg)) padding-box,
+    linear-gradient(135deg, rgba(102, 126, 234, 0.5), rgba(118, 75, 162, 0.5)) border-box !important;
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.18) !important;
+}
+.ai-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: var(--radius-lg);
+  padding: 1px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.6;
+}
+.ai-badge {
+  font-weight: 700;
+  font-size: 14px;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  letter-spacing: -0.01em;
+}
+
+/* ---------- 生活费卡片 ---------- */
+.allowance-card {
+  border-left: 4px solid var(--balance-color) !important;
+}
+.allowance-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 14px;
+}
+.allowance-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  flex: 1;
+}
+.income-num { color: var(--income-color) !important; }
+.expense-num { color: var(--expense-color) !important; }
+.allowance-progress {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.06);
+}
+.progress-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+.progress-percent {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 空状态卡片 ---------- */
+.empty-allowance {
+  border: 1px dashed rgba(102, 126, 234, 0.3) !important;
+}
+.empty-icon {
+  font-size: 28px;
+}
+
+/* ---------- 区块标题 ---------- */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---------- 钱包卡片 ---------- */
+.wallet-card {
+  cursor: default;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.wallet-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(31, 38, 135, 0.18);
+}
+.wallet-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.wallet-icon {
+  font-size: 16px;
+}
+.wallet-meta {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.add-wallet-card {
+  border: 1px dashed rgba(102, 126, 234, 0.3) !important;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.add-wallet-card:hover {
+  border-color: var(--accent) !important;
+  background: rgba(102, 126, 234, 0.06) !important;
+  transform: translateY(-2px);
+}
+.add-wallet-icon {
+  color: var(--accent);
+  font-size: 28px;
+  line-height: 1.4;
+  opacity: 0.7;
+}
+.add-wallet-text {
+  color: var(--accent);
+  font-size: 13px;
+  margin-top: 2px;
+  opacity: 0.8;
+}
 </style>
