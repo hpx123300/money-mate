@@ -213,26 +213,30 @@ onMounted(() => { load(); loadCategories(); loadWallets(); });
       />
       <el-button @click="onFilterChange">搜索</el-button>
       <span class="spacer" />
-      <el-button @click="importVisible = true">📥 导入账单</el-button>
-      <el-button @click="exportCsv">导出 CSV</el-button>
-      <el-button type="primary" @click="openCreate">记一笔</el-button>
+      <el-button class="btn-import" @click="importVisible = true">
+        <span class="btn-icon">📥</span> 导入账单
+      </el-button>
+      <el-button class="btn-export" @click="exportCsv">
+        <span class="btn-icon">📤</span> 导出 CSV
+      </el-button>
+      <el-button type="primary" @click="openCreate">✏️ 记一笔</el-button>
     </div>
 
     <el-card>
       <el-table v-loading="loading" :data="transactions" stripe empty-text="本月还没有记账记录，点右上角「记一笔」开始">
         <el-table-column prop="occurred_at" label="日期" width="110" />
-        <el-table-column label="类型" width="80">
+        <el-table-column label="类型" width="90">
           <template #default="{ row }">
-            <el-tag :type="row.type === 'income' ? 'success' : 'danger'" size="small">
-              {{ row.type === "income" ? "收入" : "支出" }}
-            </el-tag>
+            <span class="type-badge" :class="row.type === 'income' ? 'type-income' : 'type-expense'">
+              {{ row.type === "income" ? "↑ 收入" : "↓ 支出" }}
+            </span>
           </template>
         </el-table-column>
         <el-table-column prop="category_name" label="分类" width="120" />
         <el-table-column prop="wallet_name" label="钱包" width="100" />
         <el-table-column label="金额" width="140">
           <template #default="{ row }">
-            <span :style="{ color: row.type === 'income' ? '#67c23a' : '#f56c6c', fontWeight: 600 }">
+            <span class="amount-cell" :class="row.type === 'income' ? 'amount-income' : 'amount-expense'">
               {{ row.type === "income" ? "+" : "-" }}¥{{ row.amount.toFixed(2) }}
             </span>
           </template>
@@ -327,3 +331,69 @@ onMounted(() => { load(); loadCategories(); loadWallets(); });
     </el-dialog>
   </div>
 </template>
+
+<style scoped>
+/* ---------- 导入/导出按钮：更突出 ---------- */
+.btn-import,
+.btn-export {
+  font-weight: 600 !important;
+  border: 1px solid rgba(102, 126, 234, 0.3) !important;
+  background: rgba(102, 126, 234, 0.06) !important;
+  color: var(--accent) !important;
+}
+.btn-import:hover,
+.btn-export:hover {
+  background: rgba(102, 126, 234, 0.12) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  transform: translateY(-1px);
+}
+.btn-icon {
+  margin-right: 2px;
+}
+
+/* ---------- 类型徽章 ---------- */
+.type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+.type-income {
+  background: rgba(0, 184, 148, 0.12);
+  color: var(--income-color);
+  border: 1px solid rgba(0, 184, 148, 0.25);
+}
+.type-expense {
+  background: rgba(225, 112, 85, 0.12);
+  color: var(--expense-color);
+  border: 1px solid rgba(225, 112, 85, 0.25);
+}
+
+/* ---------- 金额单元格 ---------- */
+.amount-cell {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+.amount-income {
+  color: var(--income-color);
+}
+.amount-expense {
+  color: var(--expense-color);
+}
+
+/* ---------- 表格行 hover ---------- */
+:deep(.el-table__row) {
+  transition: background 0.2s ease;
+}
+:deep(.el-table__body tr:hover > td.el-table__cell) {
+  background: rgba(102, 126, 234, 0.06) !important;
+}
+:deep(.el-table th.el-table__cell) {
+  background: rgba(102, 126, 234, 0.04) !important;
+}
+</style>
