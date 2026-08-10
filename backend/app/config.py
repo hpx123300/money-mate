@@ -25,6 +25,12 @@ class Settings:
         default_db = f"sqlite:///{os.path.join(BASE_DIR, 'data', 'moneymate.db')}"
         self.database_url = os.getenv("DATABASE_URL", default_db)
         self.redis_url = os.getenv("REDIS_URL", "")
+        # CORS 白名单：开发环境允许所有来源，生产环境必须指定域名（逗号分隔）
+        self.cors_origins = (
+            ["*"]
+            if self.app_env == "dev"
+            else [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+        )
 
 
 settings = Settings()
