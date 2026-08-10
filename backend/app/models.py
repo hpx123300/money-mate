@@ -3,6 +3,7 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
+from sqlalchemy import Column, Numeric
 from sqlmodel import Field, SQLModel
 
 
@@ -24,7 +25,7 @@ class Wallet(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(index=True, foreign_key="user.id")
     name: str = Field(max_length=20)
-    balance: float = Field(default=0, description="初始余额（之后收支自动累计）")
+    balance: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(10, 2)), description="初始余额（之后收支自动累计）")
     created_at: datetime = Field(default_factory=utcnow)
 
 
@@ -45,7 +46,7 @@ class Transaction(SQLModel, table=True):
     user_id: int = Field(index=True, foreign_key="user.id")
     category_id: int = Field(index=True, foreign_key="category.id")
     wallet_id: int | None = Field(default=None, index=True, foreign_key="wallet.id")
-    amount: float = Field(default=0)
+    amount: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(10, 2)))
     type: str = Field(index=True)  # income / expense
     note: str = Field(default="")
     occurred_at: date = Field(default_factory=date.today, index=True)
@@ -58,7 +59,7 @@ class Budget(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(index=True, foreign_key="user.id")
     month: str = Field(index=True)  # 格式：2026-08
-    amount: float = Field(default=0)
+    amount: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(10, 2)))
     created_at: datetime = Field(default_factory=utcnow)
 
 
@@ -67,6 +68,6 @@ class Allowance(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(index=True, unique=True, foreign_key="user.id")
-    amount: float = Field(default=0)
+    amount: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(10, 2)))
     day_of_month: int = Field(default=1, ge=1, le=28)  # 每月几号到账
     created_at: datetime = Field(default_factory=utcnow)
