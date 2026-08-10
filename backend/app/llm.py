@@ -78,3 +78,55 @@ def chat_json(prompt: str, system: str) -> dict:
 def chat_text(prompt: str, system: str) -> str:
     """让模型输出一段自然语言。"""
     return _chat(prompt, system, json_mode=False)
+
+
+def chat_text_stream(prompt: str, system: str, temperature: float = 0.4):
+    """流式版 chat_text：逐块 yield 文本片段（生成器）。
+
+    用 SSE 协议解析 OpenAI 兼容接口的流式响应，
+    不引入额外依赖（标准库 urllib 逐行读取）。
+    """
+    if not settings.llm_api_key:
+        raise LLMError("未配置 LLM_API_KEY，请在 .env 或部署平台环境变量里设置")
+
+    payload = {
+        "model": settings.llm_model,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": temperature,
+        "max_tokens": 800,
+        "stream": True,
+    }
+    req = urllib.request.Request(
+        f"{settings.llm_base_url}/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {settings.llm_api_key}",
+        },
+    )
+    try:
+        resp = urllib.request.urlopen(req, timeout=60)
+    except urllib.error.HTTPError as e:
+        raise LLMError(f"LLM 接口报错（HTTP {e.code}）") from e
+    except (urllib.error.URLError, TimeoutError) as e:
+        raise LLMError(f"LLM 接口连不上：{e}") from e
+
+    with resp:
+        for raw_line in resp:
+            line = raw_line.decode("utf-8").strip()
+            if not line or not line.startswith("data:"):
+                continue
+            data_str = line[5:].strip()
+            if data_str == "[DONE]":
+                break
+            try:
+                chunk = json.loads(data_str)
+                delta = chunk["choices"][0]["delta"].get("content")
+                if delta:
+                    yield delta
+            except (json.JSONDecodeError, KeyError, IndexError):
+                continue
+
