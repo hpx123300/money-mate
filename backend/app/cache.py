@@ -11,9 +11,18 @@
 """
 
 import json
+import logging
 import time
+from decimal import Decimal
 
 from .config import settings
+
+
+class _DecimalEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, Decimal):
+            return float(o)
+        return super().default(o)
 
 
 class MemoryCache:
@@ -53,10 +62,10 @@ class Cache:
                     settings.redis_url, decode_responses=True
                 )
                 self._redis.ping()
-                print(f"[Cache] 已连接 Redis：{settings.redis_url}")
+                logging.getLogger("moneymate").info("已连接 Redis：%s", settings.redis_url)
             except Exception:
                 self._redis = None
-                print("[Cache] Redis 连接失败，降级为内存缓存")
+                logging.getLogger("moneymate").warning("Redis 连接失败，降级为内存缓存")
         self._mem = MemoryCache()
 
     @property
@@ -68,7 +77,7 @@ class Cache:
         return json.loads(raw) if raw else None
 
     def set_json(self, key: str, obj, ttl: int = 60) -> None:
-        raw = json.dumps(obj, ensure_ascii=False)
+        raw = json.dumps(obj, ensure_ascii=False, cls=_DecimalEncoder)
         if self._redis:
             self._redis.setex(key, ttl, raw)
         else:
