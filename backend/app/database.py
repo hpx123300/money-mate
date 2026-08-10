@@ -1,5 +1,6 @@
 """数据库模块：SQLModel + SQLite（生产可换 MySQL，只改一行配置）。"""
 
+import logging
 import os
 
 from sqlalchemy import text
@@ -7,6 +8,8 @@ from sqlmodel import SQLModel, Session, create_engine, select, update
 
 from .config import settings
 from .models import Transaction, User, Wallet
+
+logger = logging.getLogger("moneymate")
 
 # SQLite 需要这个参数允许跨线程访问（FastAPI 线程池）
 connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
@@ -47,7 +50,7 @@ def _migrate() -> None:
             conn.execute(
                 text('ALTER TABLE "transaction" ADD COLUMN wallet_id INTEGER REFERENCES wallet(id)')
             )
-            print("[迁移] transaction 表已补充 wallet_id 列")
+            logger.info("迁移：transaction 表已补充 wallet_id 列")
 
 
 def _ensure_default_wallets() -> None:
@@ -78,7 +81,7 @@ def _ensure_default_wallets() -> None:
             changed = True
         if changed:
             session.commit()
-            print("[迁移] 已为用户创建默认钱包并归入历史流水")
+            logger.info("迁移：已为用户创建默认钱包并归入历史流水")
 
 
 def get_db():
