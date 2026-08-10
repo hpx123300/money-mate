@@ -1,5 +1,7 @@
 """预算接口：按月度设置预算、查询当月预算与支出。"""
 
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select, func
 
@@ -11,7 +13,7 @@ from ..schemas import BudgetCreate, BudgetRead
 router = APIRouter(prefix="/api/budget", tags=["预算"])
 
 
-def _spent(db: Session, user_id: int, month: str) -> float:
+def _spent(db: Session, user_id: int, month: str) -> Decimal:
     """某月已支出总额。"""
     total = db.exec(
         select(func.sum(Transaction.amount)).where(
@@ -20,7 +22,7 @@ def _spent(db: Session, user_id: int, month: str) -> float:
             Transaction.occurred_at.startswith(month),
         )
     ).one()
-    return total or 0
+    return total or Decimal("0")
 
 
 @router.get("/{month}", response_model=BudgetRead)
@@ -35,7 +37,7 @@ def get_budget(
     ).first()
     return BudgetRead(
         month=month,
-        amount=budget.amount if budget else 0,
+        amount=budget.amount if budget else Decimal("0"),
         spent=_spent(db, current.id, month),
     )
 
