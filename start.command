@@ -5,7 +5,9 @@ cd "$(dirname "$0")"
 if [ ! -d ".venv" ]; then
   echo "首次运行：创建虚拟环境并安装依赖（约 1 分钟）..."
   python3 -m venv .venv
-  .venv/bin/pip install -r backend/requirements.txt
+  # 国内镜像加速，失败自动回退官方源
+  .venv/bin/pip install -r backend/requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple \
+    || .venv/bin/pip install -r backend/requirements.txt
 fi
 
 if curl -s -o /dev/null http://127.0.0.1:8000; then
