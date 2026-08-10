@@ -1,8 +1,13 @@
 """请求/响应模型：Pydantic 负责校验，FastAPI 自动生成文档。"""
 
 from datetime import date, datetime
+from decimal import Decimal
+from typing import Annotated
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, PlainSerializer
+
+# Decimal 在 JSON 序列化时转成 float（避免输出成字符串），Python 模式下仍保留 Decimal
+MoneyDecimal = Annotated[Decimal, PlainSerializer(float, return_type=float, when_used="json")]
 
 
 # ============ 用户 ============
@@ -53,7 +58,7 @@ class AiCategoryRequest(BaseModel):
 
 class AiParseResult(BaseModel):
     type: str
-    amount: float
+    amount: MoneyDecimal
     category_id: int
     category: str
     wallet_id: int | None
@@ -78,13 +83,13 @@ class AiSummaryResult(BaseModel):
 
 class WalletCreate(BaseModel):
     name: str = Field(min_length=1, max_length=20)
-    balance: float = Field(default=0, ge=0, description="初始余额")
+    balance: MoneyDecimal = Field(default=Decimal("0"), ge=0, description="初始余额")
 
 
 class WalletRead(BaseModel):
     id: int
     name: str
-    balance: float = 0  # 初始余额 + 收支累计后的实时余额
+    balance: MoneyDecimal = Decimal("0")  # 初始余额 + 收支累计后的实时余额
     transaction_count: int = 0
 
 
@@ -94,14 +99,14 @@ class WalletRead(BaseModel):
 class TransactionCreate(BaseModel):
     category_id: int
     wallet_id: int | None = None
-    amount: float = Field(gt=0, description="金额必须大于 0")
+    amount: MoneyDecimal = Field(gt=0, description="金额必须大于 0")
     type: str = Field(pattern="^(income|expense)$")
     note: str = Field(default="", max_length=200)
     occurred_at: date = Field(default_factory=date.today)
 
 
 class TransactionUpdate(BaseModel):
-    amount: float | None = Field(default=None, gt=0)
+    amount: MoneyDecimal | None = Field(default=None, gt=0)
     note: str | None = Field(default=None, max_length=200)
     occurred_at: date | None = None
 
@@ -112,7 +117,7 @@ class TransactionRead(BaseModel):
     category_name: str = ""
     wallet_id: int | None = None
     wallet_name: str = ""
-    amount: float
+    amount: MoneyDecimal
     type: str
     note: str
     occurred_at: date
@@ -142,28 +147,28 @@ class ImportResult(BaseModel):
 
 class BudgetCreate(BaseModel):
     month: str = Field(pattern=r"^\d{4}-\d{2}$", description="格式：2026-08")
-    amount: float = Field(gt=0)
+    amount: MoneyDecimal = Field(gt=0)
 
 
 class BudgetRead(BaseModel):
     month: str
-    amount: float
-    spent: float = 0  # 该月已支出
+    amount: MoneyDecimal
+    spent: MoneyDecimal = Decimal("0")  # 该月已支出
 
 
 class AllowanceRead(BaseModel):
     """生活费规划（含实时计算）"""
 
-    amount: float              # 每月生活费
+    amount: MoneyDecimal              # 每月生活费
     day_of_month: int          # 每月几号到账
-    spent: float = 0           # 本月已花
-    remaining: float = 0       # 本月剩余
+    spent: MoneyDecimal = Decimal("0")           # 本月已花
+    remaining: MoneyDecimal = Decimal("0")       # 本月剩余
     days_left: int = 0         # 距离下月生活费到账还有几天
-    daily_budget: float = 0    # 日均可用 = 剩余 / 剩余天数
+    daily_budget: MoneyDecimal = Decimal("0")    # 日均可用 = 剩余 / 剩余天数
 
 
 class AllowanceWrite(BaseModel):
-    amount: float = Field(gt=0)
+    amount: MoneyDecimal = Field(gt=0)
     day_of_month: int = Field(ge=1, le=28)
 
 
@@ -173,23 +178,23 @@ class AllowanceWrite(BaseModel):
 class CategoryStat(BaseModel):
     category_id: int
     category_name: str
-    total: float
+    total: MoneyDecimal
     percent: float  # 占该类型总额的百分比
 
 
 class MonthSummary(BaseModel):
     month: str
-    total_income: float
-    total_expense: float
-    balance: float
+    total_income: MoneyDecimal
+    total_expense: MoneyDecimal
+    balance: MoneyDecimal
     income_by_category: list[CategoryStat] = []
     expense_by_category: list[CategoryStat] = []
 
 
 class TrendPoint(BaseModel):
     month: str
-    income: float
-    expense: float
+    income: MoneyDecimal
+    expense: MoneyDecimal
 
 
 class TrendOut(BaseModel):
@@ -205,17 +210,17 @@ class MonthlySummary(BaseModel):
 
 class AnnualMonthPoint(BaseModel):
     month: str  # 2026-01
-    income: float
-    expense: float
+    income: MoneyDecimal
+    expense: MoneyDecimal
 
 
 class AnnualReport(BaseModel):
     """年度账单报告：像支付宝年度账单那样的数据叙事"""
 
     year: int
-    total_income: float
-    total_expense: float
-    balance: float
+    total_income: MoneyDecimal
+    total_expense: MoneyDecimal
+    balance: MoneyDecimal
     expense_by_category: list[CategoryStat] = []
     monthly: list[AnnualMonthPoint] = []
     biggest_expense: str = ""     # 最大单笔描述

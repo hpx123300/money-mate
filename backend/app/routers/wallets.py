@@ -1,5 +1,7 @@
 """钱包接口：多钱包管理（微信/支付宝/现金…）。"""
 
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, func, select
 
@@ -31,7 +33,7 @@ def _read_wallet(db: Session, wallet: Wallet) -> WalletRead:
     return WalletRead(
         id=wallet.id,
         name=wallet.name,
-        balance=round(wallet.balance + (income or 0) - (expense or 0), 2),
+        balance=round(wallet.balance + Decimal(str(income or 0)) - Decimal(str(expense or 0)), 2),
         transaction_count=count or 0,
     )
 

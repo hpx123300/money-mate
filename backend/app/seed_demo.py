@@ -9,6 +9,7 @@
 生活费设置（每月 2000，1 号到账）、当月预算。
 """
 
+import logging
 import random
 from datetime import date, timedelta
 
@@ -188,4 +189,4 @@ if __name__ == "__main__":
     init_db()
     with Session(engine) as session:
         created = seed_demo(session)
-    print("已创建演示数据" if created else "演示账号已存在，跳过")
+    logging.getLogger("moneymate").info("已创建演示数据" if created else "演示账号已存在，跳过")

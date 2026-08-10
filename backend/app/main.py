@@ -1,5 +1,6 @@
 """FastAPI 入口：组装路由 + 静态文件 + 健康检查。"""
 
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -13,14 +14,16 @@ from .database import init_db
 from .routers import ai, allowances, auth, budget, categories, stats, transactions, wallets
 from .seed_demo import maybe_seed_demo
 
+logger = logging.getLogger("moneymate")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     if maybe_seed_demo():
-        print("[MoneyMate] 已初始化演示数据（demo / demo123456）")
-    print(f"[MoneyMate] 启动完成 | 环境: {settings.app_env}")
-    print(f"[MoneyMate] 数据库: {settings.database_url}")
+        logger.info("已初始化演示数据（demo / demo123456）")
+    logger.info("启动完成 | 环境: %s", settings.app_env)
+    logger.info("数据库: %s", settings.database_url)
     yield
 
 
@@ -31,11 +34,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# 跨域配置：开发时允许所有来源（前后端分离部署时需要）。
-# 生产环境建议改成具体域名白名单。
+# 跨域配置：开发环境允许所有来源，生产环境从 CORS_ORIGINS 读白名单
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -53,7 +55,7 @@ app.include_router(ai.router)
 # 兜底异常处理：避免把内部错误堆栈直接暴露给用户
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request, exc):
-    print(f"[ERROR] 未处理异常：{exc}")
+    logger.error("未处理异常：%s", exc)
     return JSONResponse(status_code=500, content={"detail": "服务器内部错误，请稍后重试"})
 
 

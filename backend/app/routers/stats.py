@@ -1,9 +1,10 @@
 """统计接口：月度汇总 + 趋势。"""
 
 from datetime import date
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends
-from sqlmodel import Session, func, select
+from sqlmodel import Session, select
 
 from ..cache import cache
 from ..database import get_db
@@ -61,8 +62,8 @@ def month_summary(
         c.id: c.name
         for c in db.exec(select(Category).where(Category.user_id == current.id)).all()
     }
-    total_income = sum(t.amount for t in rows if t.type == "income")
-    total_expense = sum(t.amount for t in rows if t.type == "expense")
+    total_income = sum((t.amount for t in rows if t.type == "income"), Decimal("0"))
+    total_expense = sum((t.amount for t in rows if t.type == "expense"), Decimal("0"))
 
     def by_category(ctype: str, total: float) -> list[CategoryStat]:
         groups: dict[int, float] = {}
@@ -87,7 +88,7 @@ def month_summary(
         income_by_category=by_category("income", total_income),
         expense_by_category=by_category("expense", total_expense),
     )
-    cache.set_json(cache_key, result.model_dump())
+    cache.set_json(cache_key, result.model_dump(mode="json"))
     return result
 
 
@@ -131,7 +132,7 @@ def month_trend(
             for m in wanted
         ]
     )
-    cache.set_json(cache_key, result.model_dump())
+    cache.set_json(cache_key, result.model_dump(mode="json"))
     return result
 
 
@@ -162,8 +163,8 @@ def monthly_summary(
         for c in db.exec(select(Category).where(Category.user_id == current.id)).all()
     }
 
-    income = sum(t.amount for t in rows if t.type == "income")
-    expense = sum(t.amount for t in rows if t.type == "expense")
+    income = sum((t.amount for t in rows if t.type == "income"), Decimal("0"))
+    expense = sum((t.amount for t in rows if t.type == "expense"), Decimal("0"))
     balance = income - expense
 
     lines = [f"{month} 月度总结"]
@@ -195,7 +196,7 @@ def monthly_summary(
     for keyword in ("奶茶", "咖啡", "外卖"):
         hits = [t for t in expenses if keyword in t.note]
         if hits:
-            total = sum(t.amount for t in hits)
+            total = sum((t.amount for t in hits), Decimal("0"))
             lines.append(f"{keyword}点了 {len(hits)} 次，共花了 ¥{total:.2f}。")
 
     # 预算情况
@@ -218,7 +219,7 @@ def monthly_summary(
         lines.append("总体健康，继续保持！")
 
     result = MonthlySummary(month=month, text="\n".join(lines))
-    cache.set_json(cache_key, result.model_dump())
+    cache.set_json(cache_key, result.model_dump(mode="json"))
     return result
 
 
@@ -249,8 +250,8 @@ def annual_report(
         for c in db.exec(select(Category).where(Category.user_id == current.id)).all()
     }
 
-    income = sum(t.amount for t in rows if t.type == "income")
-    expense = sum(t.amount for t in rows if t.type == "expense")
+    income = sum((t.amount for t in rows if t.type == "income"), Decimal("0"))
+    expense = sum((t.amount for t in rows if t.type == "expense"), Decimal("0"))
     balance = income - expense
 
     # 分类排行
@@ -272,7 +273,7 @@ def annual_report(
     monthly_map: dict[str, dict[str, float]] = {}
     for t in rows:
         key = f"{year}-{t.occurred_at.month:02d}"
-        item = monthly_map.setdefault(key, {"income": 0.0, "expense": 0.0})
+        item = monthly_map.setdefault(key, {"income": Decimal("0"), "expense": Decimal("0")})
         item[t.type] = item.get(t.type, 0) + t.amount
     monthly = [
         AnnualMonthPoint(
@@ -296,7 +297,7 @@ def annual_report(
 
     # 周几花钱最多（按金额）
     weekday_names = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
-    weekday_spend = [0.0] * 7
+    weekday_spend = [Decimal("0")] * 7
     for t in expenses:
         weekday_spend[t.occurred_at.weekday()] += t.amount
     busiest_idx = max(range(7), key=lambda i: weekday_spend[i]) if expenses else 5
@@ -307,7 +308,7 @@ def annual_report(
     for keyword in ("奶茶", "咖啡", "外卖"):
         hits = [t for t in expenses if keyword in t.note]
         if hits:
-            total = sum(t.amount for t in hits)
+            total = sum((t.amount for t in hits), Decimal("0"))
             fun_facts.append(f"{keyword}全年点了 {len(hits)} 次，共花了 ¥{total:.2f}")
     if expenses:
         top_month = max(range(12), key=lambda i: monthly[i].expense)
@@ -342,5 +343,5 @@ def annual_report(
         fun_facts=fun_facts,
         summary=summary,
     )
-    cache.set_json(cache_key, result.model_dump())
+    cache.set_json(cache_key, result.model_dump(mode="json"))
     return result

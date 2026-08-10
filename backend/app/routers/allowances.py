@@ -8,6 +8,7 @@
 """
 
 from datetime import date
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
@@ -20,7 +21,7 @@ from ..schemas import AllowanceRead, AllowanceWrite
 router = APIRouter(prefix="/api/allowance", tags=["生活费"])
 
 
-def _month_spent(db: Session, user_id: int) -> float:
+def _month_spent(db: Session, user_id: int) -> Decimal:
     today = date.today()
     month = f"{today.year:04d}-{today.month:02d}"
     rows = db.exec(
@@ -30,7 +31,7 @@ def _month_spent(db: Session, user_id: int) -> float:
             Transaction.occurred_at.startswith(month),
         )
     ).all()
-    return round(sum(t.amount for t in rows), 2)
+    return round(sum((t.amount for t in rows), Decimal("0")), 2)
 
 
 def _next_arrival(today: date, day_of_month: int) -> date:
@@ -68,7 +69,7 @@ def get_allowance(
         select(Allowance).where(Allowance.user_id == current.id)
     ).first()
     if allowance is None:
-        return AllowanceRead(amount=0, day_of_month=1, spent=_month_spent(db, current.id))
+        return AllowanceRead(amount=Decimal("0"), day_of_month=1, spent=_month_spent(db, current.id))
     return _read(db, allowance, current.id)
 
 

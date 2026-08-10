@@ -3,7 +3,8 @@
 import csv
 import io
 import re
-from datetime import date, datetime
+from datetime import date
+from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response, StreamingResponse
@@ -209,17 +210,17 @@ def _parse_date(value: str) -> date | None:
         return None
 
 
-def _parse_amount(value: str) -> float | None:
+def _parse_amount(value: str) -> Decimal | None:
     cleaned = re.sub(r"[^\d.\-]", "", value)
     if not cleaned or cleaned in ("-", "."):
         return None
     try:
-        return abs(float(cleaned))
-    except ValueError:
+        return abs(Decimal(cleaned))
+    except (ValueError, InvalidOperation):
         return None
 
 
-def _parse_type(value: str, amount: float | None) -> str | None:
+def _parse_type(value: str, amount: Decimal | None) -> str | None:
     v = value.strip()
     if v in ("收", "收入", "income", "+"):
         return "income"
