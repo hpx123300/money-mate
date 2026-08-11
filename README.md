@@ -7,6 +7,12 @@
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![CI](https://github.com/hpx123300/money-mate/actions/workflows/ci.yml/badge.svg)
 
+## 📖 项目全解 & B 站自学路线
+
+👉 [docs/项目全解与B站学习路线.md](docs/项目全解与B站学习路线.md)
+
+包含：**每个目录/文件的作用介绍**、**技术栈总览**、**从零开始的 B 站学习顺序**（环境 → Python → 数据库 → 后端 → 前端 → 部署 → 面试理论）以及**面试要点速查表**。学习时对照项目文件看，知识才不会学完就忘。
+
 ## 在线体验
 
 👉 [money-mate-8vby.onrender.com](https://money-mate-8vby.onrender.com)
