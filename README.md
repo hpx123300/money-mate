@@ -7,6 +7,19 @@
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![CI](https://github.com/hpx123300/money-mate/actions/workflows/ci.yml/badge.svg)
 
+## 📚 书单（微信读书）
+
+完整书单见 [书单.md](书单.md)，微信读书可搜，按本项目技术栈定制：
+
+| 优先级 | 书名 | 为什么读 |
+| --- | --- | --- |
+| ★★★ | 《Python FastAPI Web开发从入门到项目实战》 | 与本项目技术栈完全对应（FastAPI + Vue.js 实战案例） |
+| ★★★ | 《流畅的Python（第2版）》 | 异步 / Pydantic / 装饰器，FastAPI 底层与 Python 八股 |
+| ★★★ | 《大模型应用开发》 | 提示词工程 / JSON 输出可靠性 / LLM 集成，对应 AI 记账解析 |
+| ★★ | 《TypeScript实战指南》 | Vue3 + TS 前端类型安全 |
+| ★★ | 《深入浅出Docker》 | 镜像 / 容器 / 多阶段构建与部署 |
+| ★★ | 《MySQL必知必会（第2版）》 | 数据库高频考点 |
+
 ## 📖 项目全解 & B 站自学路线
 
 👉 [docs/项目全解与B站学习路线.md](docs/项目全解与B站学习路线.md)
@@ -125,17 +138,3 @@ docker compose up --build
 ## License
 
 MIT
-## 📚 配套书单（微信读书）
-
-针对本项目的技术栈（FastAPI + Vue3 + TypeScript + Docker + Redis + LLM 集成）与「第一次找 AI 应用开发实习」的阶段，按优先级推荐（书名均可在微信读书 App / 网页版搜索到）：
-
-| 优先级 | 书名 | 为什么读 |
-| --- | --- | --- |
-| ★★★ | 《Python FastAPI Web开发从入门到项目实战》 | 与本项目技术栈完全对应（FastAPI + Vue.js 实战案例），把接口设计、依赖注入、异步与部署讲得系统 |
-| ★★★ | 《流畅的Python（第2版）》 | 装饰器、生成器、内存模型、异步——FastAPI 底层、Pydantic 校验、流式输出的基础，也是 Python 面试八股的高频区 |
-| ★★★ | 《大模型应用开发》（鲍亮 等） | 提示词工程、JSON 输出可靠性、LLM 集成——正是本项目「AI 一句话记账 / 月度消费总结」的理论支撑 |
-| ★★ | 《TypeScript实战指南》 | Vue3 + TypeScript 前端类型安全（本项目前端即 Vue3 + TS），把类型系统用明白 |
-| ★★ | 《深入浅出Docker》 | 镜像、容器、多阶段构建与部署——本项目 Docker 部署上线部分 |
-| ★★ | 《MySQL必知必会（第2版）》 | 数据库高频考点（索引、事务、连接），书很薄，两周可过 |
-
-> 说明：本项目数据库实际用 SQLite（SQLModel），但面试常问 MySQL，这本用于补数据库通识；Redis 缓存与限流部分可配合官方文档阅读。
