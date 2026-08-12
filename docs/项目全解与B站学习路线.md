@@ -207,91 +207,92 @@ backup/
 ## 五、B 站自学路线（从零到能面试，完整顺序）
 
 > 原则：**先学什么就立刻去项目里找对应文件看一遍**，知识永远挂在项目上，才不会学完就忘。
+> 所有课程都给了直达链接（BV 号），「必看章节」列的是最值得看的部分，不用从头到尾硬啃。
 
 ### 阶段 0：开发环境与工具（1 周）
 
-| 学什么 | B 站搜什么 | 对应项目文件 | 过关标准 |
-|---|---|---|---|
-| 安装 Python 3.12、VS Code | `Python安装 环境变量 VS Code` | `start.command` | 能跑 `python -V` |
-| Git 与 GitHub | `Git教程 尚硅谷` | `.git`、`README.md` | 会 add/commit/push/clone |
-| 终端命令 | `Mac终端入门` | `scripts/dev.sh` | 会用 cd/ls/mkdir 看日志 |
+| 学什么 | B 站课程（点击直达） | 必看章节 | 对应项目文件 | 过关标准 |
+|---|---|---|---|---|
+| 安装 Python 3.12、VS Code | [黑马 Python 600 集（BV1ex411x7Em）](https://www.bilibili.com/video/BV1ex411x7Em) | 开头环境篇：Python 下载安装、环境变量 | `start.command` | 能跑 `python -V` |
+| Git 与 GitHub | [尚硅谷 Git 入门到精通（BV1vy4y1s7k6）](https://www.bilibili.com/video/BV1vy4y1s7k6)（新版 3 小时速通 [BV1wm4y1z7Dg](https://www.bilibili.com/video/BV1wm4y1z7Dg)） | 常用命令（add/commit/log）→ 分支 → 远程仓库/GitHub | `.git`、`README.md` | 会 add/commit/push/clone |
+| 终端命令 | 搜「Mac 终端入门」 | 常用命令：cd/ls/mkdir/rm、PATH | `scripts/dev.sh` | 会用 cd/ls 看日志 |
 
 ### 阶段 1：Python 语言基础（2 周）
 
-| 学什么 | B 站搜什么 | 对应项目文件 | 过关标准 |
-|---|---|---|---|
-| 语法：变量/类型/运算符/条件/循环 | `Python基础教程 黑马程序员` | `routers/*.py` | 能读懂接口代码 |
-| 数据结构：列表/字典/集合/元组 | `Python列表字典` | `models.py`、`cache.py` | 会增删改查 |
-| 函数与作用域 | `Python函数` | `llm.py` | 会写函数 + 默认参数 |
-| 类与面向对象 | `Python面向对象` | `models.py` 的 `class User` | 知道 `__init__`、属性、方法 |
-| 异常处理 | `Python异常处理` | `llm.py` 的 `LLMError` | 会 try/except/raise |
-| 装饰器与生成器 | `Python装饰器 生成器` | `deps.py`（`Depends`）、`main.py` | 知道是什么、在哪见过 |
+| 学什么 | B 站课程（点击直达） | 必看章节 | 对应项目文件 | 过关标准 |
+|---|---|---|---|---|
+| 语法：变量/类型/运算符/条件/循环 | [黑马 Python 600 集（BV1ex411x7Em）](https://www.bilibili.com/video/BV1ex411x7Em) | 基础语法章节：变量、数据类型、流程控制 | `routers/*.py` | 能读懂接口代码 |
+| 数据结构：列表/字典/集合/元组 | 同上 | 数据结构章节：列表/字典/切片/推导式 | `models.py`、`cache.py` | 会增删改查 |
+| 函数与作用域 | 同上 | 函数章节：参数、默认值、作用域 | `llm.py` | 会写函数 + 默认参数 |
+| 类与面向对象 | 同上 | 面向对象章节：class/`__init__`/继承/魔术方法 | `models.py` 的 `class User` | 知道 `__init__`、属性、方法 |
+| 异常处理 | 同上 | 异常处理章节：try/except/raise/自定义异常 | `llm.py` 的 `LLMError` | 会 try/except/raise |
+| 装饰器与生成器 | 同上（若没讲透，另搜「Python 装饰器 生成器」） | 装饰器/生成器章节（面试高频，必看） | `deps.py`（`Depends`）、`main.py` | 知道是什么、在哪见过 |
 
 ### 阶段 2：数据库与 SQL（2 周）
 
-| 学什么 | B 站搜什么 | 对应项目文件 | 过关标准 |
-|---|---|---|---|
-| MySQL 安装与基本操作 | `MySQL教程 黑马程序员` | `database.py` | 会建库建表 |
-| 建表与字段类型 | `SQL 建表 数据类型` | `models.py` | 能解释每个字段 |
-| 主键/外键/唯一约束 | `SQL 主键 外键` | `User.username unique` | 知道为什么唯一 |
-| 范式与表设计 | `数据库三范式` | 表关系设计 | 能说出"为什么拆表" |
-| 索引 | `MySQL索引原理` | `Field(index=True)` | 知道索引为什么快 |
-| 事务 ACID | `MySQL事务 ACID` | `transactions.py` 写库处 | 知道原子性 |
-| ORM 概念 | `SQLAlchemy 入门` | `database.py`、`models.py` | 知道 ORM 是什么 |
+| 学什么 | B 站课程（点击直达） | 必看章节 | 对应项目文件 | 过关标准 |
+|---|---|---|---|---|
+| MySQL 安装与基本操作 | [黑马 MySQL 入门到精通（BV1Kr4y1i7ru）](https://www.bilibili.com/video/BV1Kr4y1i7ru) | 基础篇：安装、DDL/DML/DQL | `database.py` | 会建库建表 |
+| 建表与字段类型 | 同上 | 基础篇：数据类型、字段约束 | `models.py` | 能解释每个字段 |
+| 主键/外键/唯一约束 | 同上 | 基础篇：约束章节（主键/外键/UNIQUE） | `User.username unique` | 知道为什么唯一 |
+| 范式与表设计 | 同上 | 基础篇：多表关系与设计（一对多/多对多） | 表关系设计 | 能说出"为什么拆表" |
+| 索引 | 同上 | 进阶篇：索引原理（B+树、聚簇/非聚簇） | `Field(index=True)` | 知道索引为什么快 |
+| 事务 ACID | 同上 | 基础篇：事务章节（ACID、隔离级别） | `transactions.py` 写库处 | 知道原子性 |
+| ORM 概念 | 搜「SQLAlchemy 入门」 | 模型映射、会话 Session、增删改查 | `database.py`、`models.py` | 知道 ORM 是什么 |
 
 ### 阶段 3：后端 Web 开发（3 周）——本项目核心
 
-| 学什么 | B 站搜什么 | 对应项目文件 | 过关标准 |
-|---|---|---|---|
-| HTTP 协议（方法/状态码） | `HTTP协议 计算机网络` | 任意接口 | 说得清 GET/POST/401/429 |
-| REST 设计规范 | `RESTful API设计` | `routers/*` | 会设计资源路径 |
-| FastAPI 路由与参数 | `FastAPI教程` | `routers/transactions.py` | 会写增删改查接口 |
-| Pydantic 校验 | `Pydantic 校验` | `schemas.py` | 知道请求/响应模型 |
-| 依赖注入 | `FastAPI依赖注入` | `deps.py` | 能解释 `Depends` |
-| CORS 与中间件 | `CORS 跨域` | `main.py` | 知道为什么开发要开 CORS |
-| JWT 认证 | `JWT认证 前后端分离` | `security.py`、`deps.py` | 能画出登录流程图 |
-| 密码哈希 | `密码加密 Argon2` | `security.py` | 能说清为什么不能存明文 |
-| 缓存 | `Redis入门 黑马` | `cache.py` | 知道 TTL 与一致性 |
-| 限流 | `接口限流 固定窗口` | `rate_limit.py` | 能讲出算法思路 |
-| 接口测试 | `pytest教程` | `tests/test_api.py` | 会写用例并跑通 |
+| 学什么 | B 站课程（点击直达） | 必看章节 | 对应项目文件 | 过关标准 |
+|---|---|---|---|---|
+| HTTP 协议（方法/状态码） | 搜「HTTP 协议 计算机网络」（或王道计网对应章节） | 请求方法、状态码、HTTP/HTTPS | 任意接口 | 说得清 GET/POST/401/429 |
+| REST 设计规范 | 搜「RESTful API 设计」 | 资源路径、动词、状态码语义 | `routers/*` | 会设计资源路径 |
+| FastAPI 路由与参数 | [2026 FastAPI 从入门到实战（BV1ufgY6MEHJ）](https://www.bilibili.com/video/BV1ufgY6MEHJ) | 路由与路径/查询参数、请求体 | `routers/transactions.py` | 会写增删改查接口 |
+| Pydantic 校验 | 同上 | Pydantic 模型与校验章节 | `schemas.py` | 知道请求/响应模型 |
+| 依赖注入 | 同上 | 依赖注入（Depends）章节 | `deps.py` | 能解释 `Depends` |
+| CORS 与中间件 | 同上 | 中间件与 CORS 章节 | `main.py` | 知道为什么开发要开 CORS |
+| JWT 认证 | 搜「JWT 认证 前后端分离」 | 签发/校验/过期，登录流程图 | `security.py`、`deps.py` | 能画出登录流程图 |
+| 密码哈希 | 搜「密码加密 Argon2」 | Argon2 原理、为什么不用明文 | `security.py` | 能说清为什么不能存明文 |
+| 缓存 | [黑马 Redis 入门到精通（BV1CJ411m7Gc）](https://www.bilibili.com/video/BV1CJ411m7Gc) | Redis 入门：数据类型、TTL、缓存应用 | `cache.py` | 知道 TTL 与一致性 |
+| 限流 | 搜「接口限流 固定窗口」 | 固定窗口/滑动窗口算法 | `rate_limit.py` | 能讲出算法思路 |
+| 接口测试 | 搜「pytest 入门」 | fixture、断言、TestClient | `tests/test_api.py` | 会写用例并跑通 |
 
 ### 阶段 4：前端开发（3-4 周）
 
-| 学什么 | B 站搜什么 | 对应项目文件 | 过关标准 |
-|---|---|---|---|
-| HTML/CSS/JS 基础 | `Web前端入门 HTML CSS` | `frontend/index.html` | 看得懂结构 |
-| Vue3 组合式 API | `Vue3教程 尚硅谷` | `views/*.vue` | 会写 `ref`/`computed`/`onMounted` |
-| 组件与通信 | `Vue3组件通信` | `components/AppLayout.vue` | 会 props/emit |
-| TypeScript | `TypeScript教程 尚硅谷` | `types.ts`、`api.ts` | 会写接口类型 |
-| Pinia 状态管理 | `Pinia教程` | `stores/auth.ts` | 能解释为什么用它 |
-| Vue Router | `Vue Router教程` | `router.ts` | 会写路由守卫 |
-| Element Plus | `Element Plus教程` | 各页面表单/表格 | 会用组件 |
-| ECharts | `ECharts教程` | `components/EChart.vue` | 会配 option |
-| Axios 封装 | `Axios拦截器` | `api.ts` | 会统一注入令牌 |
-| Vite 构建 | `Vite教程` | `vite.config.ts` | 知道 dev/build 区别 |
+| 学什么 | B 站课程（点击直达） | 必看章节 | 对应项目文件 | 过关标准 |
+|---|---|---|---|---|
+| HTML/CSS/JS 基础 | 搜「Web 前端入门 HTML CSS」 | 盒模型、选择器、JS 基础语法 | `frontend/index.html` | 看得懂结构 |
+| Vue3 组合式 API | [尚硅谷 Vue2+Vue3 全套（BV1Zy4y1K7SH）](https://www.bilibili.com/video/BV1Zy4y1K7SH) | **直接跳 Vue3 部分**：setup/ref/reactive/computed/生命周期 | `views/*.vue` | 会写 `ref`/`computed`/`onMounted` |
+| 组件与通信 | 同上 | 组件章节：props/emit/插槽 | `components/AppLayout.vue` | 会 props/emit |
+| TypeScript | [尚硅谷 TypeScript（BV1Xy4y1v7S2）](https://www.bilibili.com/video/BV1Xy4y1v7S2) | 基础类型 → 接口 → 泛型 → 类型守卫 | `types.ts`、`api.ts` | 会写接口类型 |
+| Pinia 状态管理 | 搜「Pinia 教程」 | store/state/getters/actions | `stores/auth.ts` | 能解释为什么用它 |
+| Vue Router | 搜「Vue Router 教程」 | 路由配置、导航守卫 | `router.ts` | 会写路由守卫 |
+| Element Plus | 搜「Element Plus 教程」 | 常用组件：表单/表格/消息提示 | 各页面表单/表格 | 会用组件 |
+| ECharts | 搜「ECharts 教程」 | 基础图表：option、柱状图/饼图 | `components/EChart.vue` | 会配 option |
+| Axios 封装 | 搜「Axios 拦截器」 | 请求/响应拦截器、token 注入 | `api.ts` | 会统一注入令牌 |
+| Vite 构建 | 搜「Vite 教程」 | dev/build 区别、开发代理 | `vite.config.ts` | 知道 dev/build 区别 |
 
 ### 阶段 5：工程化与部署（2 周）
 
-| 学什么 | B 站搜什么 | 对应项目文件 | 过关标准 |
-|---|---|---|---|
-| Docker 基础 | `Docker教程 狂神说` | `Dockerfile` | 会写基础 Dockerfile |
-| 多阶段构建 | `Docker多阶段构建` | `Dockerfile` | 能解释为什么分两段 |
-| docker-compose | `docker-compose教程` | `docker-compose.yml` | 会起 MySQL + 后端 |
-| Linux 基础 | `Linux入门 黑马` | `deploy/` | 会用基本命令 |
-| CI/CD | `GitHub Actions教程` | `.github/workflows/ci.yml` | 看懂 workflow |
-| 云部署 | `Render部署`、`HuggingFace Spaces` | `render.yaml`、`deploy/` | 能部署出公网链接 |
+| 学什么 | B 站课程（点击直达） | 必看章节 | 对应项目文件 | 过关标准 |
+|---|---|---|---|---|
+| Docker 基础 | [狂神说 Docker 超详细版（BV1og4y1q7M4）](https://www.bilibili.com/video/BV1og4y1q7M4) | 核心概念（镜像/容器/仓库）→ 常用命令 → 数据卷 | `Dockerfile` | 会写基础 Dockerfile |
+| 多阶段构建 | 搜「Docker 多阶段构建」 | 多阶段原理（FROM ... AS build → 复制产物） | `Dockerfile` | 能解释为什么分两段 |
+| docker-compose | [狂神说 Docker 进阶篇（BV1kv411q7Qc）](https://www.bilibili.com/video/BV1kv411q7Qc) | Compose 文件编写、服务编排 | `docker-compose.yml` | 会起 MySQL + 后端 |
+| Linux 基础 | 搜「Linux 入门 黑马」 | 常用命令、文件权限、进程 | `deploy/` | 会用基本命令 |
+| CI/CD | 搜「GitHub Actions 教程」 | workflow 基本语法：job/step/on | `.github/workflows/ci.yml` | 看懂 workflow |
+| 云部署 | 搜「Render 部署」「HuggingFace Spaces」 | 环境变量、启动命令、健康检查 | `render.yaml`、`deploy/` | 能部署出公网链接 |
 
 ### 阶段 6：面试理论补强（长期，投简历前 2 周集中）
 
-| 学什么 | B 站搜什么 | 面试会问什么 |
+| 学什么 | B 站课程（点击直达） | 面试会问什么 |
 |---|---|---|
-| 计算机网络 | `计算机网络 王道考研` | TCP 三次握手、HTTP/HTTPS、状态码 |
-| MySQL 原理 | `MySQL索引 B+树`、`MySQL优化` | 索引原理、慢查询、事务隔离级别 |
-| Redis 原理 | `Redis原理 缓存穿透` | 穿透/击穿/雪崩、过期策略 |
-| 操作系统 | `操作系统 进程线程` | 进程线程、死锁、内存 |
-| 数据结构与算法 | `数据结构 算法` + LeetCode 简单题 | 链表/栈/队列/哈希/树/排序/二分 |
-| Vue 原理 | `Vue3 响应式原理` | 虚拟 DOM、响应式、diff |
-| JS 基础 | `JavaScript高级` | 事件循环、闭包、原型链 |
+| 计算机网络 | 搜「计算机网络 王道考研」 | TCP 三次握手、HTTP/HTTPS、状态码 |
+| MySQL 原理 | [黑马 MySQL（BV1Kr4y1i7ru）进阶篇](https://www.bilibili.com/video/BV1Kr4y1i7ru) | 索引 B+树、执行计划/慢查询、事务隔离级别 |
+| Redis 原理 | [黑马 Redis（BV1CJ411m7Gc）](https://www.bilibili.com/video/BV1CJ411m7Gc) | 缓存穿透/击穿/雪崩、过期策略 |
+| 操作系统 | 搜「操作系统 进程线程」 | 进程线程、死锁、内存 |
+| 数据结构与算法 | 搜「数据结构 算法」 + LeetCode 简单题 | 链表/栈/队列/哈希/树/排序/二分 |
+| Vue 原理 | [尚硅谷 Vue（BV1Zy4y1K7SH）原理部分](https://www.bilibili.com/video/BV1Zy4y1K7SH) | 响应式、虚拟 DOM、diff |
+| JS 基础 | 搜「JavaScript 高级」 | 事件循环、闭包、原型链 |
 
 ---
 

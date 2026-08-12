@@ -7,18 +7,21 @@
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![CI](https://github.com/hpx123300/money-mate/actions/workflows/ci.yml/badge.svg)
 
-## 📚 书单（微信读书）
+## 📺 B 站推荐（按技术栈 · 必看章节）
 
-完整书单见 [书单.md](书单.md)，微信读书可搜，按本项目技术栈定制：
+完整学习顺序（每阶段对照项目文件）见 [docs/项目全解与B站学习路线.md](docs/项目全解与B站学习路线.md)。下面直接按本技术栈挑好的课 + 必看章节：
 
-| 优先级 | 书名 | 为什么读 |
+| 技术栈 | B 站课程（点击直达） | 必看章节 |
 | --- | --- | --- |
-| ★★★ | 《Python FastAPI Web开发从入门到项目实战》（刘瑜、安义、陈逸怀、喻小菲） | 与本项目技术栈完全对应（FastAPI + Vue.js 实战案例） |
-| ★★★ | 《流畅的Python（第2版）》（[巴西]卢西亚诺·拉马略） | 异步 / Pydantic / 装饰器，FastAPI 底层与 Python 八股 |
-| ★★★ | 《大模型应用开发》（鲍亮、李倩） | 提示词工程 / JSON 输出可靠性 / LLM 集成，对应 AI 记账解析 |
-| ★★ | 《TypeScript实战指南》（胡桓铭） | Vue3 + TS 前端类型安全 |
-| ★★ | 《深入浅出Docker》（[英]奈吉尔·波尔顿） | 镜像 / 容器 / 多阶段构建与部署 |
-| ★★ | 《MySQL必知必会（第2版）》（[美]本·福达） | 数据库高频考点 |
+| Python | [黑马程序员 Python 600 集（BV1ex411x7Em）](https://www.bilibili.com/video/BV1ex411x7Em) | 基础语法 → 列表/字典 → 函数 → 面向对象 → 异常处理 → 装饰器/生成器 |
+| FastAPI | [2026 最新版 FastAPI 从入门到实战（BV1ufgY6MEHJ）](https://www.bilibili.com/video/BV1ufgY6MEHJ) | 路由与参数 → Pydantic 校验 → 依赖注入 → 文件上传 → ORM |
+| MySQL | [黑马 MySQL 入门到精通（BV1Kr4y1i7ru）](https://www.bilibili.com/video/BV1Kr4y1i7ru) | 基础篇：SQL/约束/多表/事务；进阶篇：索引 B+树 |
+| Redis | [黑马 Redis 入门到精通（BV1CJ411m7Gc）](https://www.bilibili.com/video/BV1CJ411m7Gc) | 数据类型与过期 → 缓存穿透/击穿/雪崩 |
+| Vue3 | [尚硅谷 Vue2+Vue3 全套（BV1Zy4y1K7SH）](https://www.bilibili.com/video/BV1Zy4y1K7SH) | 直接跳 Vue3 部分：setup/ref/computed → 组件通信 → 路由守卫 |
+| TypeScript | [尚硅谷 TypeScript（BV1Xy4y1v7S2）](https://www.bilibili.com/video/BV1Xy4y1v7S2) | 基础类型 → 接口/泛型 → 类型守卫 |
+| Docker | [狂神说 Docker 超详细版（BV1og4y1q7M4）](https://www.bilibili.com/video/BV1og4y1q7M4) | 核心概念 → 常用命令 → 数据卷 → Dockerfile |
+| Git | [尚硅谷 Git 入门到精通（BV1vy4y1s7k6）](https://www.bilibili.com/video/BV1vy4y1s7k6) | 常用命令 → 分支 → 远程仓库/GitHub |
+| 工程化 | 搜「pytest 入门」「GitHub Actions 教程」「Render 部署」 | 看懂 tests/ + .github/workflows/ci.yml + render.yaml |
 
 ## 📖 项目全解 & B 站自学路线
 
