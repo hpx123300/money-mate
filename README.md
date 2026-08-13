@@ -19,9 +19,16 @@
 | Redis | [黑马 Redis 入门到精通（BV1CJ411m7Gc）](https://www.bilibili.com/video/BV1CJ411m7Gc) | 数据类型与过期 → 缓存穿透/击穿/雪崩 |
 | Vue3 | [尚硅谷 Vue2+Vue3 全套（BV1Zy4y1K7SH）](https://www.bilibili.com/video/BV1Zy4y1K7SH) | 直接跳 Vue3 部分：setup/ref/computed → 组件通信 → 路由守卫 |
 | TypeScript | [尚硅谷 TypeScript（BV1Xy4y1v7S2）](https://www.bilibili.com/video/BV1Xy4y1v7S2) | 基础类型 → 接口/泛型 → 类型守卫 |
+| Pinia | [Pinia 状态管理课程讲解 2024（BV1wx421S7xb）](https://www.bilibili.com/video/BV1wx421S7xb) | store/state/getters/actions；登录态持久化（`stores/auth.ts`） |
+| Element Plus | [2025 Element Plus 从入门到精通（BV1q4hwzhEJp）](https://www.bilibili.com/video/BV1q4hwzhEJp) | 表单/表格/消息提示等常用组件 |
+| ECharts | [ECharts 大屏可视化入门（BV1v7411R7mp）](https://www.bilibili.com/video/BV1v7411R7mp) | option 配置、柱状图/饼图（仪表盘用） |
+| Axios | [尚硅谷 axios 入门与源码解析（BV1wr4y1K7tq）](https://www.bilibili.com/video/BV1wr4y1K7tq) | 请求/响应拦截器、token 注入、401 统一处理 |
+| Vite | [Vite.js 快速入门到精通（BV13arYYxEGF）](https://www.bilibili.com/video/BV13arYYxEGF) | dev/build 区别、开发代理 |
 | Docker | [狂神说 Docker 超详细版（BV1og4y1q7M4）](https://www.bilibili.com/video/BV1og4y1q7M4) | 核心概念 → 常用命令 → 数据卷 → Dockerfile |
 | Git | [尚硅谷 Git 入门到精通（BV1vy4y1s7k6）](https://www.bilibili.com/video/BV1vy4y1s7k6) | 常用命令 → 分支 → 远程仓库/GitHub |
-| 工程化 | 搜「pytest 入门」「GitHub Actions 教程」「Render 部署」 | 看懂 tests/ + .github/workflows/ci.yml + render.yaml |
+| Linux | [黑马 Linux 快速入门（BV1n84y1i7td）](https://www.bilibili.com/video/BV1n84y1i7td) | 常用命令、文件权限、进程（部署排障用） |
+| 工程化 | [pytest 测试框架入门（BV18K411m7FH）](https://www.bilibili.com/video/BV18K411m7FH) + [GitHub Actions 从入门到专业人士（BV1dMCsBKEyk）](https://www.bilibili.com/video/BV1dMCsBKEyk) | fixture/断言；看懂 tests/ + .github/workflows/ci.yml + render.yaml |
+| 八股补强 | [王道计网（BV19E411D78Q）](https://www.bilibili.com/video/BV19E411D78Q) + [王道操作系统（BV1YE411D7nH）](https://www.bilibili.com/video/BV1YE411D7nH) + [王道数据结构（BV1b7411N798）](https://www.bilibili.com/video/BV1b7411N798) + [尚硅谷 JS 高级（BV14s411E7qf）](https://www.bilibili.com/video/BV14s411E7qf) | 计网/OS/数据结构/JS 原理（投递前 2 周集中刷） |
 
 ## 📖 项目全解 & B 站自学路线
 
@@ -90,7 +97,7 @@ money-mate/
 │   └── Dockerfile
 ├── frontend/                # Vue3 前端
 │   └── src/views/           # 登录/仪表盘/流水/预算/分类 五个页面
-├── tests/test_api.py        # 13 项接口测试
+├── tests/test_api.py        # 27 项接口测试
 ├── scripts/                 # 一键启动脚本
 ├── docs/                    # 部署/简历/开发记录
 └── docker-compose.yml
@@ -135,7 +142,7 @@ docker compose up --build
 
 ## 说明
 
-- 金额用了 `float`，教学图省事；真上线我会换成 `Decimal` 避免精度问题
+- 金额已用 `Decimal` + `Numeric(10, 2)` 存储与计算（数据库层面精确到分），避免浮点精度问题
 - `.env` 不会传到 GitHub（已在忽略列表里）
 
 ## License
