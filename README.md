@@ -9,7 +9,7 @@
 
 ## 📺 B 站推荐（按技术栈 · 必看章节）
 
-完整学习顺序（每阶段对照项目文件）见 [docs/项目全解与B站学习路线.md](docs/项目全解与B站学习路线.md)。下面直接按本技术栈挑好的课 + 必看章节：
+完整学习顺序（每阶段对照项目文件）见 [说明文档.md](说明文档.md) 第一部分。下面直接按本技术栈挑好的课 + 必看章节：
 
 | 技术栈 | B 站课程（点击直达） | 必看章节 |
 | --- | --- | --- |
@@ -32,9 +32,9 @@
 
 ## 📖 项目全解 & B 站自学路线
 
-👉 [docs/项目全解与B站学习路线.md](docs/项目全解与B站学习路线.md)
+👉 [说明文档.md](说明文档.md)
 
-包含：**每个目录/文件的作用介绍**、**技术栈总览**、**从零开始的 B 站学习顺序**（环境 → Python → 数据库 → 后端 → 前端 → 部署 → 面试理论）以及**面试要点速查表**。学习时对照项目文件看，知识才不会学完就忘。
+包含：**每个目录/文件的作用介绍**、**技术栈总览**、**从零开始的 B 站学习顺序**（环境 → Python → 数据库 → 后端 → 前端 → 部署 → 面试理论）以及**面试要点速查表**；另外还有**部署指南 / 开发记录（踩坑）/ 简历写法 / 面试追问补充**。学习时对照项目文件看，知识才不会学完就忘。
 
 ## 在线体验
 
@@ -44,13 +44,13 @@
 
 ## 页面截图
 
-![登录页](docs/screenshots/login.png)
-![仪表盘](docs/screenshots/dashboard.png)
-![流水管理](docs/screenshots/transactions.png)
-![年度账单报告](docs/screenshots/report.png)
-![AI 记账助手](docs/screenshots/ai-parse.png)
-![AI 智能分类](docs/screenshots/ai-suggest.png)
-![AI 月度分析](docs/screenshots/ai-summary.png)
+![登录页](screenshots/login.png)
+![仪表盘](screenshots/dashboard.png)
+![流水管理](screenshots/transactions.png)
+![年度账单报告](screenshots/report.png)
+![AI 记账助手](screenshots/ai-parse.png)
+![AI 智能分类](screenshots/ai-suggest.png)
+![AI 月度分析](screenshots/ai-summary.png)
 
 ## 能做什么
 
@@ -99,7 +99,8 @@ money-mate/
 │   └── src/views/           # 登录/仪表盘/流水/预算/分类 五个页面
 ├── tests/test_api.py        # 27 项接口测试
 ├── scripts/                 # 一键启动脚本
-├── docs/                    # 部署/简历/开发记录
+├── 说明文档.md               # 全部技术说明（项目全解/部署/踩坑/简历/面试追问）
+├── screenshots/             # 页面截图（README 用）
 └── docker-compose.yml
 ```
 
@@ -175,7 +176,7 @@ money-mate/
 | `src/views/CategoriesView.vue` | 分类管理页 |
 | `src/views/AnnualReportView.vue` | 年度报告页 |
 
-### `tests/`、`scripts/`、`docs/`
+### `tests/`、`scripts/`、`screenshots/`
 
 | 文件 | 作用 |
 | --- | --- |
@@ -183,12 +184,8 @@ money-mate/
 | `tests/test_live.py` | 线上冒烟脚本：对运行中的服务跑完整流程 |
 | `scripts/dev.sh` | 一键启动后端（自动建虚拟环境） |
 | `scripts/build-frontend.sh` | 构建前端并拷贝到 backend/app/static |
-| `docs/开发记录.md` | 踩坑记录：每次关键决策的来龙去脉（面试讲故事用） |
-| `docs/简历写法.md` | 简历条目怎么写、量化指标怎么放 |
-| `docs/部署指南.md` | 本地 / Docker / Render 部署步骤 |
-| `docs/面试追问补充.md` | 面试官可能追问的深度问题与答案 |
-| `docs/项目全解与B站学习路线.md` | 项目全解 + 0-6 阶段 B 站自学路线（含 BV 直达） |
-| `docs/screenshots/` | 页面截图（README 用） |
+| `说明文档.md` | 全部技术说明三合一：项目全解（含 B 站学习路线）+ 部署指南 + 开发记录 + 简历写法 + 面试追问补充 |
+| `screenshots/` | 页面截图（README 用） |
 
 ## 怎么跑起来
 
@@ -216,7 +213,7 @@ docker compose up --build
 # 32 项检查全部通过
 ```
 
-## 踩过的坑（都在 docs/开发记录.md 里）
+## 踩过的坑（都在 说明文档.md 第三部分「开发记录」里）
 
 新版 Starlette 测试要装 `httpx2`、TestClient 不进入 with 就不建表、pnpm 11 默认拦构建脚本、SQLite 里 `transaction` 是保留字要加引号……每一个都是查报错查出来的。
 
