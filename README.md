@@ -103,6 +103,93 @@ money-mate/
 └── docker-compose.yml
 ```
 
+## 📄 每个文件的作用
+
+> `backend/` 下的 `__init__.py` 均为 Python 包标记；`frontend/src/vite-env.d.ts` 是 Vite 的 TypeScript 环境声明（标准文件）；`data/moneymate.db` 是运行数据库（gitignore 不提交），下面不再重复。
+
+### 根目录
+
+| 文件 | 作用 |
+| --- | --- |
+| `README.md` | 项目门面：功能、截图、技术栈、怎么跑 |
+| `start.command` | macOS 双击一键启动：自动建虚拟环境、装依赖、起服务、开浏览器；检测到已在运行就直接打开 |
+| `.env.example` | 环境变量示例（API Key / 数据库地址），复制为 `.env` 后填写 |
+| `.env` | 本地密钥（已 gitignore，绝不上传 GitHub） |
+| `.gitignore` | 忽略 `.venv`、`node_modules`、`*.db`、`.env`、构建产物等 |
+| `.dockerignore` | 构建上下文排除项，避免把 node_modules / 本地数据打进镜像 |
+| `LICENSE` | MIT 开源协议 |
+| `Dockerfile` | 全栈多阶段构建：Node 构建前端 → Python 运行时托管前端，单端口跑全栈 |
+| `docker-compose.yml` | 本地一键编排（后端 + MySQL 示例） |
+| `render.yaml` | Render 云平台部署配置（线上 demo 用的就是它） |
+| `.github/workflows/ci.yml` | GitHub Actions CI：后端测试 + 前端类型检查与构建，push/PR 自动触发 |
+
+### `backend/` — FastAPI 后端
+
+| 文件 | 作用 |
+| --- | --- |
+| `Dockerfile` | 后端独立镜像（生产用，也可单独跑） |
+| `requirements.txt` | Python 依赖清单（FastAPI / SQLModel / Redis / JWT / argon2 / pytest…） |
+| `app/main.py` | 入口：组装路由、CORS、生命周期（建表 + 演示数据）、托管前端静态文件 |
+| `app/config.py` | 配置中心：所有密钥/地址从环境变量读，不硬编码 |
+| `app/database.py` | 数据库引擎：SQLite/MySQL 切换、建表、跨线程兼容 |
+| `app/models.py` | 数据模型：User / Wallet / Category / Transaction / Budget / Allowance |
+| `app/schemas.py` | Pydantic 请求/响应模型：参数校验、返回结构 |
+| `app/security.py` | 安全：Argon2 密码哈希 + JWT 签发/校验（HS256） |
+| `app/deps.py` | FastAPI 依赖：OAuth2 取令牌 → 解析 → 返回当前用户 |
+| `app/cache.py` | 缓存模块：Redis 优先、内存兜底，支持 JSON 序列化与 TTL |
+| `app/rate_limit.py` | 固定窗口限流：60 秒内超限返回 429，保护 AI 接口 |
+| `app/llm.py` | LLM 客户端：调 DeepSeek /chat/completions（JSON mode、流式、错误兜底） |
+| `app/seed_demo.py` | 演示数据：首次启动注入 demo 账号和示例流水 |
+| `app/routers/auth.py` | 注册、登录（OAuth2 密码模式）、获取当前用户 |
+| `app/routers/wallets.py` | 钱包/账户增删改查，余额随流水自动累计 |
+| `app/routers/categories.py` | 收支分类管理（餐饮/交通/宿舍水电…） |
+| `app/routers/transactions.py` | 流水核心：增删改查、分页、搜索、CSV 导入（去重）/导出/模板 |
+| `app/routers/budget.py` | 月度预算设置与当月支出对比 |
+| `app/routers/allowances.py` | 生活费规划：到账日倒计时、剩余天数、日均可用 |
+| `app/routers/stats.py` | 汇总/趋势/月度统计/年度报告（给 ECharts 供数） |
+| `app/routers/ai.py` | AI 记账解析、AI 分类推荐、月度总结（带限流） |
+
+### `frontend/` — Vue3 前端
+
+| 文件 | 作用 |
+| --- | --- |
+| `package.json` | 依赖与脚本（dev / build / typecheck） |
+| `pnpm-lock.yaml` / `pnpm-workspace.yaml` | 依赖锁定与 workspace 配置 |
+| `index.html` | HTML 入口 |
+| `vite.config.ts` | Vite 构建配置（代理 /api → 后端） |
+| `tsconfig.json` / `tsconfig.node.json` | TypeScript 编译配置 |
+| `src/main.ts` | 应用入口：挂载 Vue、Pinia、路由 |
+| `src/App.vue` | 根组件 |
+| `src/api.ts` | Axios 封装：baseURL、自动带令牌、401 自动跳登录 |
+| `src/types.ts` | 与后端对应的 TS 类型（User / Category / Wallet / Transaction…） |
+| `src/utils.ts` | 工具函数（金额格式化等） |
+| `src/styles.css` | 全局样式 |
+| `src/router.ts` | 路由表 + 登录守卫（没登录不能进业务页） |
+| `src/stores/auth.ts` | Pinia 登录状态：token 持久化到 localStorage |
+| `src/components/AppLayout.vue` | 后台布局：侧边导航 + 顶栏 + 内容区 |
+| `src/components/EChart.vue` | ECharts 封装组件（传 option 即出图） |
+| `src/views/LoginView.vue` | 登录 / 注册页 |
+| `src/views/DashboardView.vue` | 仪表盘：本月收支、钱包、生活费倒计时、趋势图 |
+| `src/views/TransactionsView.vue` | 流水页：增删改、分页搜索、CSV 导入导出 |
+| `src/views/BudgetView.vue` | 预算页：设置月度预算、进度展示 |
+| `src/views/CategoriesView.vue` | 分类管理页 |
+| `src/views/AnnualReportView.vue` | 年度报告页 |
+
+### `tests/`、`scripts/`、`docs/`
+
+| 文件 | 作用 |
+| --- | --- |
+| `tests/test_api.py` | 27 项接口测试（pytest + TestClient，覆盖全业务） |
+| `tests/test_live.py` | 线上冒烟脚本：对运行中的服务跑完整流程 |
+| `scripts/dev.sh` | 一键启动后端（自动建虚拟环境） |
+| `scripts/build-frontend.sh` | 构建前端并拷贝到 backend/app/static |
+| `docs/开发记录.md` | 踩坑记录：每次关键决策的来龙去脉（面试讲故事用） |
+| `docs/简历写法.md` | 简历条目怎么写、量化指标怎么放 |
+| `docs/部署指南.md` | 本地 / Docker / Render 部署步骤 |
+| `docs/面试追问补充.md` | 面试官可能追问的深度问题与答案 |
+| `docs/项目全解与B站学习路线.md` | 项目全解 + 0-6 阶段 B 站自学路线（含 BV 直达） |
+| `docs/screenshots/` | 页面截图（README 用） |
+
 ## 怎么跑起来
 
 ```bash
