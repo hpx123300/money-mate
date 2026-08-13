@@ -142,10 +142,6 @@ scripts/
 ├── dev.sh                    # 一键启动后端（自动建虚拟环境）
 └── build-frontend.sh         # 构建前端并拷贝到 backend/app/static
 
-deploy/
-├── hf-README.md              # HuggingFace Spaces 部署说明（免费公网演示）
-└── hf-spaces.Dockerfile      # HF Spaces 专用 Dockerfile
-
 docs/
 ├── 开发记录.md                # 踩坑记录：每次关键决策的来龙去脉
 ├── 简历写法.md                # 简历条目怎么写、量化指标怎么放
@@ -155,10 +151,6 @@ docs/
 
 data/
 └── moneymate.db              # 运行数据库（SQLite，gitignore 不提交）
-
-backup/
-├── README.md                 # 备份说明
-└── moneymate.db              # 旧版本遗留数据库备份（仅 1 用户 1 流水，防万一）
 ```
 
 ---
@@ -200,7 +192,7 @@ backup/
 
 - Docker 多阶段：第一阶段 Node 构建前端 → 第二阶段 Python 运行时，`COPY --from=frontend` 把产物并进后端静态目录，单端口跑全栈
 - GitHub Actions：每次 push 自动跑后端测试 + 前端构建，挂了会红
-- Render / HuggingFace Spaces 配置齐全，改环境变量即可上线
+- Render 配置齐全，改环境变量即可上线（免费档偶尔休眠，重新访问会等几秒）
 
 ---
 
