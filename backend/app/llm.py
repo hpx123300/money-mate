@@ -7,14 +7,45 @@
 """
 
 import json
+import time
 import urllib.request
 import urllib.error
 
 from .config import settings
 
+# 瞬时故障重试：网络抖动、超时、429、5xx 值得重试；4xx 客户端错误不重试
+MAX_ATTEMPTS = 3
+BACKOFF_BASE = 0.6
+
 
 class LLMError(Exception):
     """LLM 调用失败（没配 key / 网络错误 / 返回不合法）。"""
+
+
+def _retryable(exc: Exception) -> bool:
+    if isinstance(exc, (urllib.error.URLError, TimeoutError)):
+        return True
+    if isinstance(exc, urllib.error.HTTPError):
+        return exc.code == 429 or 500 <= exc.code < 600
+    return False
+
+
+def _open_with_retry(req: urllib.request.Request, timeout: int):
+    """发送请求，对瞬时故障做指数退避重试。"""
+    last: Exception | None = None
+    for attempt in range(MAX_ATTEMPTS):
+        try:
+            return urllib.request.urlopen(req, timeout=timeout)
+        except urllib.error.HTTPError as e:
+            last = e
+            if not _retryable(e):
+                body = e.read().decode("utf-8", "ignore")[:200]
+                raise LLMError(f"LLM 接口报错（HTTP {e.code}）：{body}") from e
+        except (urllib.error.URLError, TimeoutError) as e:
+            last = e
+        if attempt < MAX_ATTEMPTS - 1:
+            time.sleep(BACKOFF_BASE * (2**attempt))
+    raise LLMError(f"LLM 接口重试 {MAX_ATTEMPTS} 次仍失败：{last}") from last
 
 
 def _chat(prompt: str, system: str, json_mode: bool = False, temperature: float = 0.2) -> str:
@@ -41,13 +72,10 @@ def _chat(prompt: str, system: str, json_mode: bool = False, temperature: float 
             "Authorization": f"Bearer {settings.llm_api_key}",
         },
     )
+    with _open_with_retry(req, timeout=30) as resp:
+        raw = resp.read().decode("utf-8")
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        raise LLMError(f"LLM 接口报错（HTTP {e.code}）：{e.read().decode('utf-8', 'ignore')[:200]}") from e
-    except (urllib.error.URLError, TimeoutError) as e:
-        raise LLMError(f"LLM 接口连不上：{e}") from e
+        data = json.loads(raw)
     except json.JSONDecodeError as e:
         raise LLMError("LLM 返回的不是合法 JSON") from e
 
@@ -107,12 +135,7 @@ def chat_text_stream(prompt: str, system: str, temperature: float = 0.4):
             "Authorization": f"Bearer {settings.llm_api_key}",
         },
     )
-    try:
-        resp = urllib.request.urlopen(req, timeout=60)
-    except urllib.error.HTTPError as e:
-        raise LLMError(f"LLM 接口报错（HTTP {e.code}）") from e
-    except (urllib.error.URLError, TimeoutError) as e:
-        raise LLMError(f"LLM 接口连不上：{e}") from e
+    resp = _open_with_retry(req, timeout=60)
 
     with resp:
         for raw_line in resp:
