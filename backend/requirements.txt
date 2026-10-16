@@ -18,4 +18,10 @@ python-dotenv>=1.0
 
 # ---- 测试 ----
 pytest>=8.0
-httpx2>=0.1          # Starlette TestClient 的新依赖
+# Starlette 1.6 的 TestClient 是「优先 import httpx2，找不到才回退 import httpx」。
+# 所以这里必须是 httpx2，不要顺手改成 httpx——名字看着更像正统，但装它不会被用到。
+# 下界写 2.0：httpx2 的版本号从 0.0.0 直接跳到 2.x，并不存在 0.1。
+httpx2>=2.0
+# 在进程内跑 Redis 命令（[lua] 带 Lua 支持），用来测限流那段 Lua 脚本。
+# 生产路径就是 Redis，本地不一定有 Redis 服务，不测等于没跑过。
+fakeredis[lua]>=2.30

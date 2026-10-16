@@ -15,6 +15,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
+    // 注意这里的判断顺序：清令牌和跳转都只在「不在登录页」时做。
+    // 因为登录页上的 401 通常是密码输错，此时若把令牌也清掉，
+    // 会把一个本来有效的已登录会话误踢下线。
     if (err.response?.status === 401 && window.location.pathname !== "/login") {
       localStorage.removeItem("token");
       window.location.href = "/login";

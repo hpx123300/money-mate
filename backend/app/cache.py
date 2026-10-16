@@ -72,6 +72,15 @@ class Cache:
     def backend(self) -> str:
         return "redis" if self._redis else "memory"
 
+    @property
+    def redis(self):
+        """底层 Redis 客户端；未配置 REDIS_URL 或连接失败时为 None。
+
+        供限流等需要原生命令（Lua 脚本、ZSET）的场景使用；
+        普通缓存读写仍走下面封装好的 get_json / set_json。
+        """
+        return self._redis
+
     def get_json(self, key: str):
         raw = self._redis.get(key) if self._redis else self._mem.get(key)
         return json.loads(raw) if raw else None

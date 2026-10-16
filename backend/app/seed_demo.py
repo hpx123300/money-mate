@@ -16,9 +16,9 @@ from datetime import date, timedelta
 from sqlmodel import Session, select
 
 from .config import settings
+from .constants import DEFAULT_CATEGORIES
 from .database import engine, init_db
 from .models import Allowance, Budget, Category, Transaction, User, Wallet
-from .routers.auth import DEFAULT_CATEGORIES
 from .security import hash_password
 
 DEMO_USERNAME = "demo"

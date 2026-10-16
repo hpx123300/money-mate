@@ -2,7 +2,8 @@ services:
   web:
     build:
       context: .
-      dockerfile: backend/Dockerfile
+      # 项目只有根目录一份 Dockerfile（render.yaml 也指向它）
+      dockerfile: Dockerfile
     container_name: moneymate-web
     ports:
       - "8000:8000"

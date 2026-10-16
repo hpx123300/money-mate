@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
 
+from ..constants import DEFAULT_CATEGORIES, DEFAULT_WALLET_NAME
 from ..database import get_db
 from ..deps import get_current_user
 from ..models import Category, User, Wallet
@@ -11,23 +12,6 @@ from ..schemas import Token, UserCreate, UserRead
 from ..security import create_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/api/auth", tags=["认证"])
-
-# 新用户自动创建的默认分类
-DEFAULT_CATEGORIES = [
-    ("餐饮", "expense"),
-    ("外卖", "expense"),
-    ("购物", "expense"),
-    ("宿舍水电", "expense"),
-    ("交通", "expense"),
-    ("娱乐", "expense"),
-    ("学习", "expense"),
-    ("医疗", "expense"),
-    ("其他支出", "expense"),
-    ("生活费", "income"),
-    ("兼职", "income"),
-    ("奖学金", "income"),
-    ("其他收入", "income"),
-]
 
 
 @router.post("/register", response_model=UserRead, status_code=201)
@@ -50,7 +34,7 @@ def register(data: UserCreate, db: Session = Depends(get_db)):
     for name, ctype in DEFAULT_CATEGORIES:
         db.add(Category(user_id=user.id, name=name, type=ctype))
     # 默认一个「现金」钱包，之后用户自己加微信/支付宝等
-    db.add(Wallet(user_id=user.id, name="现金", balance=0))
+    db.add(Wallet(user_id=user.id, name=DEFAULT_WALLET_NAME, balance=0))
 
     db.commit()
     db.refresh(user)

@@ -16,11 +16,14 @@ jobs:
           python-version: "3.12"
       - name: 安装依赖
         run: pip install -r backend/requirements.txt
+      # 统一用 pytest 收集用例（与 README 里的命令一致）。
+      # tests/test_live.py 是对运行中服务的冒烟脚本，没有 test_ 函数，
+      # 也不会在 import 时执行请求，所以放进 tests/ 一起收集是安全的。
       - name: 运行测试
-        run: python tests/test_api.py
+        run: python -m pytest tests/ -q
 
-  frontend-build:
-    name: 前端构建
+  frontend-test-build:
+    name: 前端测试与构建
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -37,5 +40,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: 类型检查
         run: pnpm typecheck
+      - name: 单元测试
+        run: pnpm test
       - name: 构建前端
         run: pnpm build

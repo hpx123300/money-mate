@@ -3,7 +3,7 @@
 面向**大学生记账场景**的 Python 全栈 Web 应用。支持多钱包、月度预算、生活费规划、统计报表，以及基于大模型的 AI 一句话记账。
 
 **在线演示**：https://money-mate-8vby.onrender.com （演示账号 `demo` / `demo123456`）
-> 部署在 Render 免费套餐上，15 分钟无访问会休眠，首次打开需等待数秒唤醒。
+> 部署在 Render 免费套餐上，15 分钟无访问会休眠，首次打开需等待数秒唤醒；免费套餐的文件系统不持久，重新部署后数据会重置（每次会重新种入演示数据）。
 
 ## 功能
 
@@ -17,18 +17,18 @@
 
 ## 技术栈
 
-- **后端**：FastAPI · SQLModel（SQLAlchemy 2.x + Pydantic）· MySQL · Redis · Uvicorn
+- **后端**：FastAPI · SQLModel（SQLAlchemy 2.x + Pydantic）· SQLite（配 `DATABASE_URL` 即可切 MySQL）· Redis · Uvicorn
 - **前端**：Vue3 · TypeScript · Element Plus · ECharts · Pinia · Vite
 - **AI**：DeepSeek 大模型（OpenAI 兼容接口），JSON mode 结构化输出 + 流式输出
-- **工程化**：pytest（27 项）· GitHub Actions CI · Docker 多阶段构建 · Render 部署
+- **工程化**：pytest（37 项）· Vitest（14 项）· GitHub Actions CI · Docker 多阶段构建 · Render 部署
 
 ## 架构
 
 ```mermaid
 flowchart LR
     V[Vue3 前端] -->|REST / JWT| A[FastAPI]
-    A --> S[SQLModel / MySQL]
-    A --> R[(Redis 缓存 + 限流)]
+    A --> S[SQLModel<br/>SQLite / MySQL]
+    A --> R[(Redis 缓存<br/>滑动窗口限流)]
     A --> L[DeepSeek LLM]
     L --> P[一句话记账解析<br/>智能分类<br/>月度总结]
 ```
@@ -62,13 +62,26 @@ docker run -p 8000:8000 moneymate
 
 ### 3. 鉴权与限流
 
-JWT 无状态鉴权 + Argon2 密码哈希；Redis 实现固定窗口限流与热点数据缓存。
+JWT 无状态鉴权 + Argon2 密码哈希；Redis 做热点数据缓存与**滑动窗口限流**。
+
+限流用在 AI 这类成本高的接口上。两个细节：
+
+- **滑动窗口而非固定窗口**：固定窗口把时间切成 `[0,60)`、`[60,120)` 这样的桶，在桶边界两侧各打满一次，任意 60 秒内实际会放过 2×limit 次请求。滑动窗口统计的是「当前时刻往前推 60 秒」，区间连续右移，没有边界突变。
+- **原子执行**：判断与计数不能分成「先读再写」两步，否则并发下两个请求会读到同一个旧值、各自 +1 写回，计数少于真实请求数。Redis 侧把「清理过期 + 计数 + 写入」放进一段 Lua 脚本，由 Redis 单线程执行；内存兜底路径用线程锁保护。
+
+Redis 不可用时自动退化为进程内限流，限流组件本身不会成为故障点。
 
 ## 测试
 
 ```bash
-pytest tests/ -q      # 27 项接口测试
+# 后端：27 项接口测试 + 10 项限流测试
+pytest tests/ -q
+
+# 前端：api 封装、登录 store、金额格式化
+cd frontend && pnpm test
 ```
+
+限流的 Redis 分支用 `fakeredis` 在进程内真实执行那段 Lua 脚本——本地不一定有 Redis 服务，但它是生产路径，不测等于没跑过。
 
 CI 配置见 `.github/workflows/ci.yml`。
 
@@ -76,17 +89,21 @@ CI 配置见 `.github/workflows/ci.yml`。
 
 仓库根目录的 `render.yaml` 已配好 Render Blueprint（Docker、免费套餐、健康检查）。部署步骤见 [说明文档.md](说明文档.md)。
 
+> 关于数据持久化：本地与 Docker Compose 用 SQLite 文件；Render 免费套餐的文件系统不持久，所以线上演示的数据会随重新部署重置。需要长期保存就把 `DATABASE_URL` 指向托管数据库（Postgres / MySQL 均可，代码层只改这一处配置）。
+
 ## 目录结构
 
 ```
 backend/app/
   main.py         应用入口与路由挂载
+  config.py       环境变量配置
+  constants.py    默认分类等跨模块常量
   models.py       SQLModel 数据模型
   schemas.py      Pydantic 请求/响应模型
   database.py     引擎与会话
   security.py     JWT + Argon2
-  cache.py        Redis 缓存
-  rate_limit.py   固定窗口限流
+  cache.py        Redis 缓存（未配置时降级为内存）
+  rate_limit.py   滑动窗口限流（Redis 原子执行 + 内存兜底）
   llm.py          DeepSeek 调用封装
   seed_demo.py    演示数据生成
   routers/        auth / wallets / transactions / categories / budget / allowances / stats / ai
@@ -94,7 +111,13 @@ frontend/src/
   views/          登录 / 仪表盘 / 流水 / 预算 / 分类 / 年度报告
   stores/         Pinia 状态（登录态持久化）
   components/     布局与图表组件
-tests/            27 项接口测试
+  *.test.ts       Vitest 单元测试
+Dockerfile        唯一的镜像构建文件（render.yaml 与 docker-compose 都指向它）
+tests/
+  conftest.py     测试环境固定（测试库 / 内存缓存 / 不真调模型）
+  test_api.py     27 项接口测试
+  test_rate_limit.py  10 项限流测试
+  test_live.py    对运行中服务的冒烟脚本
 ```
 
 ## License

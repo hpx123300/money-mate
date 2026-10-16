@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from .. import llm
+from ..constants import FALLBACK_EXPENSE_CATEGORY, FALLBACK_INCOME_CATEGORY
 from ..database import get_db
 from ..deps import get_current_user
 from ..models import Category, Transaction, User, Wallet
@@ -38,10 +39,9 @@ def _llm_unavailable(e: llm.LLMError) -> HTTPException:
 
 def _fallback_category(categories: list[Category], type_: str) -> Category:
     """模型给的名字对不上时，落到「其他支出/其他收入」，保证流程不断。"""
+    wanted = FALLBACK_EXPENSE_CATEGORY if type_ == "expense" else FALLBACK_INCOME_CATEGORY
     for c in categories:
-        if c.name == "其他支出" and type_ == "expense":
-            return c
-        if c.name == "其他收入" and type_ == "income":
+        if c.name == wanted and c.type == type_:
             return c
     return categories[0]
 
