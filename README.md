@@ -85,6 +85,52 @@ cd frontend && pnpm test
 
 CI 配置见 `.github/workflows/ci.yml`。
 
+## 评测
+
+AI 功能的效果可以复现地量化，不是靠感觉说「挺好用」。
+
+```bash
+# AI 一句话记账：100 条标注测试集，字段级准确率 + 分类混淆 + 追问正确率 + 多笔 + 对抗
+.venv/bin/python scripts/eval_ai_parse.py --save
+
+# 先跑几条快速验证
+.venv/bin/python scripts/eval_ai_parse.py --limit 10
+
+# 单独测某几条的稳定性（大模型输出有随机性，一次通过不代表稳定通过）
+.venv/bin/python scripts/eval_ai_parse.py --only c098 --repeat 5
+
+# 与历史结果对比
+.venv/bin/python scripts/eval_ai_parse.py --baseline data/eval/results/2026-10-16_before.json
+```
+
+数据集与判分口径：`data/eval/parse_cases.json`（口径写在文件头部，改数据集要同步改口径）。
+历次结果：`data/eval/results/`。
+
+三个设计要点：
+
+- 评测走真实接口 `POST /api/ai/parse-transaction`，不是把提示词抄一份到脚本里。抄一份的话，评测能过而线上会挂。
+- 准确率拆到字段级（类型 / 金额 / 分类 / 钱包 / 日期）。金额错和日期错是严重程度完全不同的两种错，混成一个「整句准确率」看不出问题在哪。
+- 没有明确期望的字段要排除出分母。否则「没评测」会被算成「没通过」，准确率被系统性拉低，看起来像模型的问题，其实是数据集的问题。
+
+脚本需要真实 LLM Key，所以不进 CI；本地改完提示词手动跑。
+
+### 一轮实测结果
+
+改动只有一处：把分类口径写进提示词。原来只给分类名，模型只能凭字面联想，于是「买了瓶水」被判成其他支出、「网费」被判成其他支出。
+
+| 指标 | 改前 | 改后 |
+| --- | --- | --- |
+| 类型 | 100%（74/74） | 100%（74/74） |
+| 金额 | 100%（77/77） | 100%（77/77） |
+| 分类 | 91.9%（57/62） | 100%（62/62） |
+| 钱包 | 100%（8/8） | 100%（8/8） |
+| 日期 | 100%（61/61） | 100%（61/61） |
+| 该追问且追问了 | 11/11 | 12/12 |
+| 多笔输入命中其中一笔 | 7/10 | 10/10 |
+| 对抗样本未被带跑 | 10/10 | 10/10 |
+
+顺带发现两个还没解决的问题，写在说明文档里：多笔输入只返回一笔（需要改接口契约），以及注入抵抗在重复测试下只有 2/3 稳定（靠提示词不可靠）。
+
 ## 部署
 
 仓库根目录的 `render.yaml` 已配好 Render Blueprint（Docker、免费套餐、健康检查）。部署步骤见 [说明文档.md](说明文档.md)。
@@ -113,6 +159,11 @@ frontend/src/
   components/     布局与图表组件
   *.test.ts       Vitest 单元测试
 Dockerfile        唯一的镜像构建文件（render.yaml 与 docker-compose 都指向它）
+scripts/
+  eval_ai_parse.py    AI 一句话记账的字段级评测
+data/eval/
+  parse_cases.json    100 条标注测试集与判分口径
+  results/            历次评测结果（可做前后对比）
 tests/
   conftest.py     测试环境固定（测试库 / 内存缓存 / 不真调模型）
   test_api.py     27 项接口测试

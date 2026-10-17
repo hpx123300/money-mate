@@ -12,7 +12,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from .. import llm
-from ..constants import FALLBACK_EXPENSE_CATEGORY, FALLBACK_INCOME_CATEGORY
+from ..constants import (
+    CATEGORY_HINTS,
+    FALLBACK_EXPENSE_CATEGORY,
+    FALLBACK_INCOME_CATEGORY,
+)
 from ..database import get_db
 from ..deps import get_current_user
 from ..models import Category, Transaction, User, Wallet
@@ -46,6 +50,21 @@ def _fallback_category(categories: list[Category], type_: str) -> Category:
     return categories[0]
 
 
+def _category_lines(categories: list[Category], type_: str) -> str:
+    """列出分类名并附上归类口径。
+
+    只给分类名时，模型只能凭字面联想，会把「买了瓶水」判成其他支出。
+    带上口径它才知道边界在哪。用户自建的分类没有口径，只列名字。
+    """
+    lines = []
+    for c in categories:
+        if c.type != type_:
+            continue
+        hint = CATEGORY_HINTS.get(c.name)
+        lines.append(f"- {c.name}：{hint}" if hint else f"- {c.name}")
+    return "\n".join(lines) or "（无）"
+
+
 @router.post("/parse-transaction", response_model=AiParseResult)
 def ai_parse_transaction(
     data: AiParseRequest,
@@ -64,14 +83,16 @@ def ai_parse_transaction(
     prompt = f"""用户输入：{data.text}
 今天是：{date.today().isoformat()}
 
-可选的支出分类：{json.dumps([c.name for c in categories if c.type == "expense"], ensure_ascii=False)}
-可选的收入分类：{json.dumps([c.name for c in categories if c.type == "income"], ensure_ascii=False)}
+可选的支出分类（按冒号后的口径判断，不要凭字面联想）：
+{_category_lines(categories, "expense")}
+可选的收入分类（按冒号后的口径判断）：
+{_category_lines(categories, "income")}
 可选的钱包：{json.dumps([w.name for w in wallets], ensure_ascii=False)}
 
 请只输出一个 JSON 对象，字段：
 - type: "expense" 或 "income"
-- amount: 数字（元）
-- category: 上面的分类名之一（没有合适就选「其他支出」或「其他收入」）
+- amount: 数字（元）。一句话里如果有多笔消费，只提取其中一笔，绝对不要把多笔金额相加
+- category: 上面的分类名之一，必须严格按口径判断（没有合适就选「其他支出」或「其他收入」）
 - wallet: 上面的钱包名之一
 - note: 一句话备注（10 字以内，如「午饭」）
 - date: 消费日期 "YYYY-MM-DD"（不晚于今天）
