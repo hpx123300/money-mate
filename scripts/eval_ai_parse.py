@@ -147,23 +147,30 @@ def run_case(client: TestClient, case: dict, today: date) -> dict:
 
     if resp.status_code == 200:
         data = resp.json()
+        # 接口现在返回 items 数组。字段级准确率仍按第一笔算（单笔场景两者等价），
+        # 多笔场景单独统计，不并进字段准确率——否则两句拆笔准确率会把单笔准确率稀释。
+        items = data.get("items") or []
+        first = items[0] if items else {}
         rec["actual"] = {
-            "type": data.get("type"),
-            "amount": float(data.get("amount", 0)),
-            "category": data.get("category"),
-            "wallet": data.get("wallet"),
-            "date": data.get("occurred_at"),
-            "note": data.get("note"),
+            "type": first.get("type"),
+            "amount": float(first.get("amount", 0)),
+            "category": first.get("category"),
+            "wallet": first.get("wallet"),
+            "date": first.get("occurred_at"),
+            "note": first.get("note"),
         }
+        rec["item_count"] = len(items)
+        rec["item_amounts"] = [float(i.get("amount", 0)) for i in items]
 
         if expect.get("multi"):
             allowed = [float(a) for a in expect["amounts"]]
-            hit = any(abs(rec["actual"]["amount"] - a) <= 0.01 for a in allowed)
-            rec["multi_hit"] = hit
-            if not hit:
-                failures.append(
-                    f"多笔输入未命中任一笔：期望 {allowed}，实际 {rec['actual']['amount']}"
-                )
+            got = rec["item_amounts"]
+            # 命中判定：期望的每一笔都出现在返回结果里。早先是「命中任意一笔」，
+            # 那是接口只能返回一笔时的妥协；现在契约支持多笔，就必须全命中。
+            missing = [a for a in allowed if not any(abs(g - a) <= 0.01 for g in got)]
+            rec["multi_hit"] = not missing
+            if missing:
+                failures.append(f"多笔输入漏掉 {missing}：期望 {allowed}，实际 {got}")
         else:
             if expect.get("amount") is not None:
                 if abs(rec["actual"]["amount"] - float(expect["amount"])) > 0.01:

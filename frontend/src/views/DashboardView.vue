@@ -20,14 +20,16 @@ const allowance = ref<Allowance | null>(null);
 const aiText = ref("");
 const aiParsing = ref(false);
 const aiDraftVisible = ref(false);
-const aiDraft = reactive({
-  type: "expense" as "income" | "expense",
-  category_id: undefined as number | undefined,
-  wallet_id: undefined as number | undefined,
-  amount: undefined as number | undefined,
-  occurred_at: "",
-  note: "",
-});
+// 一句话可能拆出多笔，所以草稿是数组，逐条确认、一起提交
+interface AiDraft {
+  type: "income" | "expense";
+  category_id?: number;
+  wallet_id?: number | null;
+  amount: number;
+  occurred_at: string;
+  note: string;
+}
+const aiDrafts = ref<AiDraft[]>([]);
 const aiSummary = ref("");
 const aiSummaryLoading = ref(false);
 
@@ -111,14 +113,8 @@ async function aiParse() {
   aiParsing.value = true;
   try {
     const { data } = await api.post("/ai/parse-transaction", { text });
-    Object.assign(aiDraft, {
-      type: data.type,
-      category_id: data.category_id,
-      wallet_id: data.wallet_id,
-      amount: data.amount,
-      occurred_at: data.occurred_at,
-      note: data.note,
-    });
+    // 接口返回 items：一句话可能拆出多笔，逐条确认后一起提交
+    aiDrafts.value = (data.items || []).map((it: any) => ({ ...it }));
     aiDraftVisible.value = true;
   } catch (e: any) {
     ElMessage.error(e.response?.data?.detail || "AI 解析失败，请稍后再试");
@@ -128,13 +124,20 @@ async function aiParse() {
 }
 
 async function aiSave() {
-  if (!aiDraft.category_id || !aiDraft.amount) {
+  const valid = aiDrafts.value.filter((d) => d.category_id && d.amount && d.amount > 0);
+  if (!valid.length) {
     ElMessage.warning("请确认分类和金额");
     return;
   }
   try {
-    await api.post("/transactions", { ...aiDraft });
-    ElMessage.success("AI 记账成功 ✨");
+    // 每条带独立 client_token：网络重试不会把同一笔记成两笔
+    for (const d of valid) {
+      await api.post("/transactions", {
+        ...d,
+        client_token: `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      });
+    }
+    ElMessage.success(valid.length > 1 ? `已记账 ${valid.length} 笔 ✨` : "AI 记账成功 ✨");
     aiDraftVisible.value = false;
     aiText.value = "";
     load();
@@ -420,39 +423,46 @@ function refreshAll() {
       </template>
     </el-dialog>
 
-    <el-dialog v-model="aiDraftVisible" title="AI 识别结果，确认一下" width="420px">
-      <el-form label-width="70px">
-        <el-form-item label="类型">
-          <el-radio-group v-model="aiDraft.type" @change="aiDraft.category_id = undefined">
-            <el-radio-button value="expense">支出</el-radio-button>
-            <el-radio-button value="income">收入</el-radio-button>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="分类">
-          <el-select v-model="aiDraft.category_id" placeholder="选择分类" style="width: 100%">
-            <el-option
-              v-for="c in categories.filter((c) => c.type === aiDraft.type)"
-              :key="c.id"
-              :label="c.name"
-              :value="c.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="钱包">
-          <el-select v-model="aiDraft.wallet_id" placeholder="选择钱包" style="width: 100%">
-            <el-option v-for="w in wallets" :key="w.id" :label="w.name" :value="w.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="金额">
-          <el-input-number v-model="aiDraft.amount" :min="0.01" :precision="2" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="日期">
-          <el-date-picker v-model="aiDraft.occurred_at" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="aiDraft.note" maxlength="200" />
-        </el-form-item>
-      </el-form>
+    <el-dialog
+      v-model="aiDraftVisible"
+      :title="aiDrafts.length > 1 ? `AI 识别出 ${aiDrafts.length} 笔，逐条确认` : 'AI 识别结果，确认一下'"
+      width="460px"
+    >
+      <div v-for="(d, idx) in aiDrafts" :key="idx" class="draft-item">
+        <div class="draft-index">第 {{ idx + 1 }} 笔</div>
+        <el-form label-width="64px">
+          <el-form-item label="类型">
+            <el-radio-group v-model="d.type" @change="d.category_id = undefined">
+              <el-radio-button value="expense">支出</el-radio-button>
+              <el-radio-button value="income">收入</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="分类">
+            <el-select v-model="d.category_id" placeholder="选择分类" style="width: 100%">
+              <el-option
+                v-for="c in categories.filter((c) => c.type === d.type)"
+                :key="c.id"
+                :label="c.name"
+                :value="c.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="钱包">
+            <el-select v-model="d.wallet_id" placeholder="选择钱包" style="width: 100%">
+              <el-option v-for="w in wallets" :key="w.id" :label="w.name" :value="w.id" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="金额">
+            <el-input-number v-model="d.amount" :min="0.01" :precision="2" style="width: 100%" />
+          </el-form-item>
+          <el-form-item label="日期">
+            <el-date-picker v-model="d.occurred_at" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+          </el-form-item>
+          <el-form-item label="备注">
+            <el-input v-model="d.note" maxlength="200" />
+          </el-form-item>
+        </el-form>
+      </div>
       <template #footer>
         <el-button @click="aiDraftVisible = false">取消</el-button>
         <el-button type="primary" @click="aiSave">确认记账</el-button>
@@ -636,5 +646,20 @@ function refreshAll() {
   font-size: 12.5px;
   line-height: 1.6;
   color: var(--text-secondary);
+}
+/* 多笔草稿：每条一笔，用分隔卡片区分，避免用户以为还是一整笔 */
+.draft-item {
+  border: 1px solid rgba(102, 126, 234, 0.14);
+  border-radius: 10px;
+  padding: 4px 12px 10px;
+  margin-bottom: 10px;
+}
+.draft-item:last-child {
+  margin-bottom: 0;
+}
+.draft-index {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  padding: 6px 0 2px;
 }
 </style>

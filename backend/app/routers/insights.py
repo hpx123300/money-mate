@@ -86,6 +86,7 @@ def _anomaly_insight(user: User, db: Session, month: str) -> dict | None:
         .join(Category, Transaction.category_id == Category.id)
         .where(
             Transaction.user_id == user.id,
+            Transaction.deleted_at.is_(None),
             Transaction.type == "expense",
             Transaction.occurred_at >= since,
         )
@@ -158,6 +159,7 @@ def list_insights(
     rows = db.exec(
         select(Transaction).where(
             Transaction.user_id == current.id,
+            Transaction.deleted_at.is_(None),
             Transaction.occurred_at.startswith(month),
             Transaction.type == "expense",
         )

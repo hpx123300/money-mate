@@ -97,7 +97,9 @@ def delete_wallet(
     if not wallet or wallet.user_id != current.id:
         raise HTTPException(status_code=404, detail="钱包不存在")
     has_tx = db.exec(
-        select(Transaction).where(Transaction.wallet_id == wallet_id)
+        select(Transaction).where(
+            Transaction.wallet_id == wallet_id, Transaction.deleted_at.is_(None)
+        )
     ).first()
     if has_tx:
         raise HTTPException(status_code=400, detail="该钱包下已有流水，不能删除")

@@ -80,7 +80,9 @@ def update_category(
     # 有流水的分类禁止改类型，但允许改名字
     if category.type != data.type:
         has_tx = db.exec(
-            select(Transaction).where(Transaction.category_id == category_id)
+            select(Transaction).where(
+            Transaction.category_id == category_id, Transaction.deleted_at.is_(None)
+        )
         ).first()
         if has_tx:
             raise HTTPException(status_code=400, detail="该分类下已有流水，不能修改类型")
@@ -105,7 +107,9 @@ def delete_category(
     if not category or category.user_id != current.id:
         raise HTTPException(status_code=404, detail="分类不存在")
     if db.exec(
-        select(Transaction).where(Transaction.category_id == category_id)
+        select(Transaction).where(
+            Transaction.category_id == category_id, Transaction.deleted_at.is_(None)
+        )
     ).first():
         raise HTTPException(status_code=400, detail="该分类下已有流水，不能删除")
     db.delete(category)

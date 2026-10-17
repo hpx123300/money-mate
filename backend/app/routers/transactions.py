@@ -13,7 +13,7 @@ from sqlmodel import Session, func, select
 from ..cache import cache
 from ..database import get_db
 from ..deps import get_current_user
-from ..models import Category, Transaction, User, Wallet
+from ..models import Category, Transaction, User, Wallet, utcnow
 from ..schemas import (
     ImportResult,
     TransactionCreate,
@@ -75,7 +75,7 @@ def list_transactions(
     """
     page = max(1, page)
     page_size = max(1, min(page_size, 100))
-    conditions = [Transaction.user_id == current.id]
+    conditions = [Transaction.user_id == current.id, Transaction.deleted_at.is_(None)]
     if month:
         conditions.append(Transaction.occurred_at.startswith(month))
     if type:
@@ -120,6 +120,7 @@ def create_transaction(
         existing = db.exec(
             select(Transaction).where(
                 Transaction.user_id == current.id,
+                Transaction.deleted_at.is_(None),
                 Transaction.client_token == data.client_token,
             )
         ).first()
@@ -162,7 +163,7 @@ def update_transaction(
 ):
     """修改流水（金额/备注/日期）。"""
     t = db.get(Transaction, transaction_id)
-    if not t or t.user_id != current.id:
+    if not t or t.user_id != current.id or t.deleted_at is not None:
         raise HTTPException(status_code=404, detail="流水不存在")
     if data.amount is not None:
         t.amount = data.amount
@@ -184,9 +185,12 @@ def delete_transaction(
     db: Session = Depends(get_db),
 ):
     t = db.get(Transaction, transaction_id)
-    if not t or t.user_id != current.id:
+    if not t or t.user_id != current.id or t.deleted_at is not None:
         raise HTTPException(status_code=404, detail="流水不存在")
-    db.delete(t)
+    # 软删除：只标记时间，不物理删除。用户按错的账想恢复还有余地，
+    # 统计侧统一用 alive() 过滤，不会把已删数据算进去。
+    t.deleted_at = utcnow()
+    db.add(t)
     db.commit()
     cache.delete_prefix(f"stats:{current.id}:")
 
@@ -334,9 +338,14 @@ async def import_transactions(
     }
 
     # 已有流水集合，用于去重（同用户 + 同日期 + 同金额 + 同备注）
+    # 只和未删除的比对：删掉一笔后再导入同一条，应该能重新导进来
     existing = {
         (t.occurred_at, t.amount, t.note)
-        for t in db.exec(select(Transaction).where(Transaction.user_id == current.id)).all()
+        for t in db.exec(
+            select(Transaction).where(
+                Transaction.user_id == current.id, Transaction.deleted_at.is_(None)
+            )
+        ).all()
     }
 
     imported = 0
@@ -414,7 +423,9 @@ def export_csv(
     db: Session = Depends(get_db),
 ):
     """导出流水为 CSV（用浏览器直接下载，方便做自己的数据分析）。"""
-    query = select(Transaction).where(Transaction.user_id == current.id)
+    query = select(Transaction).where(
+        Transaction.user_id == current.id, Transaction.deleted_at.is_(None)
+    )
     if month:
         query = query.where(Transaction.occurred_at.startswith(month))
     rows = db.exec(query.order_by(Transaction.occurred_at)).all()

@@ -54,6 +54,7 @@ def month_summary(
         return MonthSummary(**cached)
     query = select(Transaction).where(
         Transaction.user_id == current.id,
+        Transaction.deleted_at.is_(None),
         Transaction.occurred_at.startswith(month),
     )
     rows = db.exec(query).all()
@@ -111,6 +112,7 @@ def month_trend(
     rows = db.exec(
         select(Transaction).where(
             Transaction.user_id == current.id,
+            Transaction.deleted_at.is_(None),
             Transaction.occurred_at >= f"{wanted[0]}-01",
         )
     ).all()
@@ -155,6 +157,7 @@ def monthly_summary(
     rows = db.exec(
         select(Transaction).where(
             Transaction.user_id == current.id,
+            Transaction.deleted_at.is_(None),
             Transaction.occurred_at.startswith(month),
         )
     ).all()
@@ -241,6 +244,7 @@ def annual_report(
     rows = db.exec(
         select(Transaction).where(
             Transaction.user_id == current.id,
+            Transaction.deleted_at.is_(None),
             Transaction.occurred_at >= f"{year}-01-01",
             Transaction.occurred_at <= f"{year}-12-31",
         )

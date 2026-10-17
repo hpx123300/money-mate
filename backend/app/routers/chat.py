@@ -26,7 +26,16 @@ from .. import llm
 from ..constants import CATEGORY_HINTS, FALLBACK_EXPENSE_CATEGORY, FALLBACK_INCOME_CATEGORY
 from ..database import get_db
 from ..deps import get_current_user
-from ..models import Allowance, Budget, Category, Transaction, User, Wallet
+from ..models import (
+    Allowance,
+    Budget,
+    Category,
+    Transaction,
+    User,
+    UserFact,
+    Wallet,
+    utcnow,
+)
 from ..rate_limit import rate_limit
 
 router = APIRouter(prefix="/api/chat", tags=["AI 对话"])
@@ -92,6 +101,38 @@ TOOLS = [
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "remember_fact",
+            "description": "用户说出关于自己的长期事实时调用（如「每月 1 号生活费到账 2000」「每周三固定打球花 30」）。不要把单笔消费存进来。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "enum": ["income_pattern", "fixed_expense", "preference", "other"],
+                        "description": "收入模式 / 固定支出 / 偏好 / 其他",
+                    },
+                    "key": {"type": "string", "description": "事实的短标签，如「生活费到账日」"},
+                    "value": {"type": "string", "description": "事实内容，50 字以内"},
+                },
+                "required": ["kind", "key", "value"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "forget_fact",
+            "description": "用户说某条记忆不对或过时了，按标签删掉对应事实。",
+            "parameters": {
+                "type": "object",
+                "properties": {"key": {"type": "string", "description": "要删除的事实标签"}},
+                "required": ["key"],
+            },
+        },
+    },
 ]
 
 SYSTEM_TEMPLATE = """你是大学生的记账助手，语气自然，像一个熟悉的朋友。
@@ -105,7 +146,12 @@ SYSTEM_TEMPLATE = """你是大学生的记账助手，语气自然，像一个�
 {categories}
 3. 钱包可选：{wallets}
 4. 记账和改预算只是生成草稿，用户确认后才真正生效，回复时说明「确认后才会记账」。
-5. 回答简短，不要用列表堆砌，不要提「作为一个 AI」。
+5. 用户说出关于自己的长期事实（收入模式、固定支出、偏好）时，调用 remember_fact 记下来；
+   说某条记忆过时了就调用 forget_fact。
+6. 回答简短，不要用列表堆砌，不要提「作为一个 AI」。
+
+【用户档案（长期记忆）】
+{facts}
 
 今天是 {today}。"""
 
@@ -185,6 +231,7 @@ def _tool_query_spending(args: dict, current: User, db: Session) -> dict:
         .join(Category, Transaction.category_id == Category.id)
         .where(
             Transaction.user_id == current.id,
+            Transaction.deleted_at.is_(None),
             Transaction.occurred_at.startswith(month),
             Transaction.type == type_,
         )
@@ -241,6 +288,52 @@ def _tool_set_budget(args: dict, current: User, db: Session) -> dict:
     }
 
 
+def _tool_remember_fact(args: dict, current: User, db: Session) -> dict:
+    """把用户的长期事实存起来（upsert：同 kind+key 覆盖旧值）。"""
+    kind = str(args.get("kind", "other")).strip() or "other"
+    key = str(args.get("key", "")).strip()[:40]
+    value = str(args.get("value", "")).strip()[:200]
+    if not key or not value:
+        return {"ok": False, "error": "事实的标签和内容都要有"}
+
+    row = db.exec(
+        select(UserFact).where(UserFact.user_id == current.id, UserFact.kind == kind, UserFact.key == key)
+    ).first()
+    if row:
+        row.value = value
+        row.updated_at = utcnow()
+    else:
+        row = UserFact(user_id=current.id, kind=kind, key=key, value=value)
+    db.add(row)
+    db.commit()
+    return {"ok": True, "hint": f"已记住：{key} = {value}"}
+
+
+def _tool_forget_fact(args: dict, current: User, db: Session) -> dict:
+    key = str(args.get("key", "")).strip()
+    if not key:
+        return {"ok": False, "error": "要删的事实标签不能为空"}
+    rows = db.exec(
+        select(UserFact).where(UserFact.user_id == current.id, UserFact.key == key)
+    ).all()
+    if not rows:
+        return {"ok": True, "hint": f"没有找到「{key}」这条记忆"}
+    for row in rows:
+        db.delete(row)
+    db.commit()
+    return {"ok": True, "hint": f"已忘掉：{key}"}
+
+
+def _load_facts(user_id: int, db: Session) -> str:
+    """把长期事实拼成提示词片段。没有就返回占位，避免模型疑惑。"""
+    rows = db.exec(
+        select(UserFact).where(UserFact.user_id == user_id).order_by(UserFact.updated_at.desc())
+    ).all()
+    if not rows:
+        return "（暂无。用户提到自己的固定收支模式或偏好时，记得记下来）"
+    return "\n".join(f"- {r.key}：{r.value}" for r in rows[:20])
+
+
 def _tool_get_status(args: dict, current: User, db: Session) -> dict:
     month = date.today().strftime("%Y-%m")
     allowance = db.exec(select(Allowance).where(Allowance.user_id == current.id)).first()
@@ -250,6 +343,7 @@ def _tool_get_status(args: dict, current: User, db: Session) -> dict:
     rows = db.exec(
         select(Transaction).where(
             Transaction.user_id == current.id,
+            Transaction.deleted_at.is_(None),
             Transaction.occurred_at.startswith(month),
             Transaction.type == "expense",
         )
@@ -275,6 +369,8 @@ _TOOL_IMPL = {
     "query_spending": _tool_query_spending,
     "set_budget": _tool_set_budget,
     "get_status": _tool_get_status,
+    "remember_fact": _tool_remember_fact,
+    "forget_fact": _tool_forget_fact,
 }
 
 
@@ -289,6 +385,7 @@ def run_chat(text: str, current: User, db: Session) -> dict:
     system = SYSTEM_TEMPLATE.format(
         categories=_category_block(categories),
         wallets="、".join(w.name for w in wallets) or "（无）",
+        facts=_load_facts(current.id, db),
         today=date.today().isoformat(),
     )
 

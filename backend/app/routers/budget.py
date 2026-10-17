@@ -18,6 +18,7 @@ def _spent(db: Session, user_id: int, month: str) -> Decimal:
     total = db.exec(
         select(func.sum(Transaction.amount)).where(
             Transaction.user_id == user_id,
+            Transaction.deleted_at.is_(None),
             Transaction.type == "expense",
             Transaction.occurred_at.startswith(month),
         )

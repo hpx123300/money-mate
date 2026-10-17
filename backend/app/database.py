@@ -55,6 +55,10 @@ def _migrate() -> None:
         with engine.begin() as conn:
             conn.execute(text('ALTER TABLE "transaction" ADD COLUMN client_token VARCHAR(64)'))
             logger.info("迁移：transaction 表已补充 client_token 列")
+    if "deleted_at" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text('ALTER TABLE "transaction" ADD COLUMN deleted_at TIMESTAMP'))
+            logger.info("迁移：transaction 表已补充 deleted_at 列")
 
     # 复合索引：统计查询是「user_id = ? AND occurred_at BETWEEN ?」，
     # 单列索引只能命中一半条件。create_all 不会给已存在的表补索引，这里手动建。

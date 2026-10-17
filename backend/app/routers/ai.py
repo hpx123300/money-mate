@@ -22,7 +22,12 @@ from ..database import get_db
 from ..deps import get_current_user
 from ..models import Category, Transaction, User, Wallet
 from ..rate_limit import rate_limit
-from ..schemas import AiParseRequest, AiParseResult, AiSummaryResult
+from ..schemas import (
+    AiParseRequest,
+    AiParseResponse,
+    AiParseResult,
+    AiSummaryResult,
+)
 
 router = APIRouter(prefix="/api/ai", tags=["AI 记账助手"])
 
@@ -97,13 +102,61 @@ def _category_lines(categories: list[Category], type_: str) -> str:
     return "\n".join(lines) or "（无）"
 
 
-@router.post("/parse-transaction", response_model=AiParseResult)
+def _build_draft(
+    row: dict,
+    categories: list[Category],
+    wallets: list[Wallet],
+    text: str,
+) -> AiParseResult | None:
+    """把模型返回的一条记录整理成可确认的草稿。
+
+    返回 None 表示这一条不可用（金额为 0 或凭空造数）——多笔场景下
+    不能因为一条脏数据把整句话都否掉，丢掉的应该是脏的那一条。
+    """
+    type_ = row.get("type") if row.get("type") in ("expense", "income") else "expense"
+    try:
+        amount = round(Decimal(str(row.get("amount", 0))), 2)
+    except (TypeError, ValueError, InvalidOperation):
+        return None
+    if amount <= 0 or not _amount_grounded(amount, text):
+        return None
+
+    cat = next(
+        (c for c in categories if c.name == row.get("category") and c.type == type_), None
+    )
+    if cat is None:
+        cat = _fallback_category(categories, type_)
+    wallet = next((w for w in wallets if w.name == row.get("wallet")), None)
+    if wallet is None:
+        wallet = wallets[0] if wallets else None
+
+    try:
+        occurred_at = date.fromisoformat(str(row.get("date", "")))
+        if occurred_at > date.today():
+            occurred_at = date.today()
+    except ValueError:
+        occurred_at = date.today()
+
+    note = str(row.get("note", "")).strip() or cat.name
+    return AiParseResult(
+        type=type_,
+        amount=amount,
+        category_id=cat.id,
+        category=cat.name,
+        wallet_id=wallet.id if wallet else None,
+        wallet=wallet.name if wallet else None,
+        note=note,
+        occurred_at=occurred_at,
+    )
+
+
+@router.post("/parse-transaction", response_model=AiParseResponse)
 def ai_parse_transaction(
     data: AiParseRequest,
     current: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """输入「今天午饭花了25」，解析出类型/金额/分类/钱包，返回可确认的草稿。"""
+    """输入「早上地铁5块，中午吃饭68」，解析出每一笔的草稿（数组）。"""
     rate_limit(current.id, "ai_parse", limit=20)
 
     text = (data.text or "").strip()
@@ -136,13 +189,16 @@ def ai_parse_transaction(
 {_category_lines(categories, "income")}
 可选的钱包：{json.dumps([w.name for w in wallets], ensure_ascii=False)}
 
-请只输出一个 JSON 对象，字段：
-- type: "expense" 或 "income"
-- amount: 数字（元）。一句话里如果有多笔消费，只提取其中一笔，绝对不要把多笔金额相加
-- category: 上面的分类名之一，必须严格按口径判断（没有合适就选「其他支出」或「其他收入」）
-- wallet: 上面的钱包名之一
-- note: 一句话备注（10 字以内，如「午饭」）
-- date: 消费日期 "YYYY-MM-DD"（不晚于今天）
+请只输出一个 JSON 对象，形如 {{"transactions": [{{...}}, {{...}}]}}。
+- 一句话里有几笔消费，数组里就放几笔，**绝对不要把多笔金额相加**
+- 只有一笔时数组长度为 1
+- 每个元素的字段：
+  - type: "expense" 或 "income"
+  - amount: 数字（元）
+  - category: 上面的分类名之一，必须严格按口径判断
+  - wallet: 上面的钱包名之一
+  - note: 一句话备注（10 字以内，如「午饭」）
+  - date: 消费日期 "YYYY-MM-DD"（不晚于今天）
 """
     try:
         raw = llm.chat_json(prompt, _SYSTEM)
@@ -151,45 +207,42 @@ def ai_parse_transaction(
     except ValueError as e:
         raise HTTPException(status_code=502, detail=f"AI 返回内容解析失败：{e}")
 
-    type_ = raw.get("type") if raw.get("type") in ("expense", "income") else "expense"
-    try:
-        amount = round(Decimal(str(raw.get("amount", 0))), 2)
-    except (TypeError, ValueError, InvalidOperation):
-        amount = Decimal("0")
-    if amount <= 0:
-        raise HTTPException(status_code=422, detail="没识别出金额，请说得更具体些，比如「午饭花了 25」")
-    if not _amount_grounded(amount, text):
-        # 宁可让用户手动填，也不要静默记下一笔凭空造出来的金额
+    # 兼容两种模型返回：按约定的 {"transactions": [...]} 或直接一个对象
+    rows = raw.get("transactions") if isinstance(raw, dict) else None
+    if not isinstance(rows, list):
+        rows = [raw]
+
+    items: list[AiParseResult] = []
+    dropped_no_amount = False
+    dropped_ungrounded = False
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        try:
+            amount = round(Decimal(str(row.get("amount", 0))), 2)
+        except (TypeError, ValueError, InvalidOperation):
+            amount = Decimal("0")
+        if amount <= 0:
+            dropped_no_amount = True
+            continue
+        if not _amount_grounded(amount, text):
+            dropped_ungrounded = True
+            continue
+        item = _build_draft(row, categories, wallets, text)
+        if item is not None:
+            items.append(item)
+
+    if not items:
+        # 报错要说清原因，否则用户只会看到「没识别出」，不知道是没说金额还是说多了
+        if dropped_ungrounded:
+            raise HTTPException(
+                status_code=422,
+                detail="识别出的金额和原文对不上，请换个说法或手动记账",
+            )
         raise HTTPException(
-            status_code=422,
-            detail="识别出的金额和原文对不上，请换个说法或手动记账",
+            status_code=422, detail="没识别出金额，请说得更具体些，比如「午饭花了 25」"
         )
-
-    cat = next((c for c in categories if c.name == raw.get("category") and c.type == type_), None)
-    if cat is None:
-        cat = _fallback_category(categories, type_)
-    wallet = next((w for w in wallets if w.name == raw.get("wallet")), None)
-    if wallet is None:
-        wallet = wallets[0] if wallets else None
-
-    try:
-        occurred_at = date.fromisoformat(str(raw.get("date", "")))
-        if occurred_at > date.today():
-            occurred_at = date.today()
-    except ValueError:
-        occurred_at = date.today()
-
-    note = str(raw.get("note", "")).strip() or data.text.strip()[:20]
-    return AiParseResult(
-        type=type_,
-        amount=amount,
-        category_id=cat.id,
-        category=cat.name,
-        wallet_id=wallet.id if wallet else None,
-        wallet=wallet.name if wallet else None,
-        note=note,
-        occurred_at=occurred_at,
-    )
+    return AiParseResponse(items=items, multi=len(items) > 1)
 
 
 @router.get("/monthly-summary", response_model=AiSummaryResult)
@@ -203,6 +256,7 @@ def ai_monthly_summary(
     rows = db.exec(
         select(Transaction, Category).join(Category, Transaction.category_id == Category.id).where(
             Transaction.user_id == current.id,
+            Transaction.deleted_at.is_(None),
             Transaction.occurred_at.startswith(month),
         )
     ).all()
@@ -258,6 +312,7 @@ def ai_monthly_summary_stream(
         rows = db.exec(
             select(Transaction, Category).join(Category, Transaction.category_id == Category.id).where(
                 Transaction.user_id == current.id,
+                Transaction.deleted_at.is_(None),
                 Transaction.occurred_at.startswith(month),
             )
         ).all()

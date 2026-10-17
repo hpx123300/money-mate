@@ -63,6 +63,17 @@ class AiParseResult(BaseModel):
     occurred_at: date
 
 
+class AiParseResponse(BaseModel):
+    """一句话记账的解析结果。
+
+    为什么是数组：用户说「早上地铁 5 块，中午吃饭 68」时这是两笔消费。
+    早期只能返回一笔，另一笔静默丢失——比记错更隐蔽，因为用户以为记上了。
+    """
+
+    items: list[AiParseResult]
+    multi: bool
+
+
 class AiSummaryResult(BaseModel):
     month: str
     summary: str

@@ -634,11 +634,14 @@ def test_ai_parse_transaction():
         r = client.post("/api/ai/parse-transaction", json={"text": "今天午饭花了 25"}, headers=headers)
         assert r.status_code == 200, r.text
         data = r.json()
-        assert data["amount"] == 25
-        assert data["type"] == "expense"
-        assert data["category"] == "餐饮"
-        assert data["wallet"] == "现金"
-        assert data["occurred_at"] == f"{CUR_MONTH}-02"
+        assert data["multi"] is False
+        assert len(data["items"]) == 1
+        first = data["items"][0]
+        assert first["amount"] == 25
+        assert first["type"] == "expense"
+        assert first["category"] == "餐饮"
+        assert first["wallet"] == "现金"
+        assert first["occurred_at"] == f"{CUR_MONTH}-02"
     finally:
         ai_router.llm.chat_json = original
 
@@ -661,7 +664,7 @@ def test_ai_parse_fallback_category():
         headers = _login(user["username"])
         r = client.post("/api/ai/parse-transaction", json={"text": "交了 9.9 杂费"}, headers=headers)
         assert r.status_code == 200
-        assert r.json()["category"] == "其他支出"
+        assert r.json()["items"][0]["category"] == "其他支出"
     finally:
         ai_router.llm.chat_json = original
 
@@ -935,3 +938,193 @@ def test_insights_dismiss_hides_for_24h():
 
     after = client.get(f"/api/insights?month={CUR_MONTH}", headers=headers).json()["insights"]
     assert all(i["id"] != target["id"] for i in after)
+
+
+def test_ai_parse_multiple_items():
+    """一句话两笔消费：返回两条草稿，而不是只给第一条。"""
+    from app.routers import ai as ai_router
+
+    original = ai_router.llm.chat_json
+    ai_router.llm.chat_json = lambda prompt, system: {
+        "transactions": [
+            {"type": "expense", "amount": 5, "category": "交通", "wallet": "微信",
+             "note": "地铁", "date": f"{CUR_MONTH}-05"},
+            {"type": "expense", "amount": 68, "category": "餐饮", "wallet": "微信",
+             "note": "午饭", "date": f"{CUR_MONTH}-05"},
+        ]
+    }
+    try:
+        user = _register()
+        headers = _login(user["username"])
+        r = client.post(
+            "/api/ai/parse-transaction",
+            json={"text": "早上地铁花了5块，中午吃饭花了68"},
+            headers=headers,
+        )
+    finally:
+        ai_router.llm.chat_json = original
+
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["multi"] is True
+    assert [i["amount"] for i in body["items"]] == [5.0, 68.0]
+    assert [i["category"] for i in body["items"]] == ["交通", "餐饮"]
+    # 早先的缺陷是第二笔静默丢失，这里显式断言笔数
+    assert len(body["items"]) == 2
+
+
+def test_ai_parse_drops_only_the_bad_item():
+    """多笔里有一条编造金额时，丢掉那一条，保留其余，不把整句话否掉。"""
+    from app.routers import ai as ai_router
+
+    original = ai_router.llm.chat_json
+    ai_router.llm.chat_json = lambda prompt, system: {
+        "transactions": [
+            {"type": "expense", "amount": 5, "category": "交通", "wallet": "微信",
+             "note": "地铁", "date": f"{CUR_MONTH}-05"},
+            {"type": "expense", "amount": 7300, "category": "餐饮", "wallet": "微信",
+             "note": "编造", "date": f"{CUR_MONTH}-05"},
+        ]
+    }
+    try:
+        user = _register()
+        headers = _login(user["username"])
+        r = client.post(
+            "/api/ai/parse-transaction",
+            json={"text": "早上地铁花了5块"},
+            headers=headers,
+        )
+    finally:
+        ai_router.llm.chat_json = original
+
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert len(body["items"]) == 1
+    assert body["items"][0]["amount"] == 5.0
+
+
+def test_soft_delete_excluded_from_everywhere():
+    """软删除后：统计、预算、钱包流水数、洞察都不再算它；再导入同一条能进来。"""
+    user = _register()
+    headers = _login(user["username"])
+    food = next(c for c in client.get("/api/categories", headers=headers).json() if c["name"] == "餐饮")
+
+    payload = {
+        "category_id": food["id"],
+        "amount": 66,
+        "type": "expense",
+        "note": "火锅",
+        "occurred_at": f"{CUR_MONTH}-01",
+    }
+    created = client.post("/api/transactions", json=payload, headers=headers).json()
+    tid = created["id"]
+
+    before_summary = client.get(f"/api/stats/summary?month={CUR_MONTH}", headers=headers).json()
+    assert before_summary["total_expense"] >= 66
+
+    # 删除
+    r = client.delete(f"/api/transactions/{tid}", headers=headers)
+    assert r.status_code == 204
+
+    # 1) 列表不再出现
+    assert client.get("/api/transactions", headers=headers).json()["total"] == 0
+    # 2) 改/删已删数据按 404 处理
+    assert client.put(
+        f"/api/transactions/{tid}", json={"note": "x"}, headers=headers
+    ).status_code == 404
+    assert client.delete(f"/api/transactions/{tid}", headers=headers).status_code == 404
+    # 3) 统计不再算它
+    after_summary = client.get(f"/api/stats/summary?month={CUR_MONTH}", headers=headers).json()
+    assert after_summary["total_expense"] == 0
+    # 4) 预算口径同步
+    client.put(f"/api/budget/{CUR_MONTH}", json={"month": CUR_MONTH, "amount": 100}, headers=headers)
+    assert client.get(f"/api/budget/{CUR_MONTH}", headers=headers).json()["spent"] == 0
+    # 5) 洞察不算它
+    items = client.get(f"/api/insights?month={CUR_MONTH}", headers=headers).json()["insights"]
+    assert all("66" not in str(i) for i in items)
+    # 6) 物理上还在（软删除的本意），但接口层看不到
+    from app.database import engine
+    from sqlmodel import Session, select
+    from app.models import Transaction
+
+    with Session(engine) as session:
+        row = session.get(Transaction, tid)
+        assert row is not None
+        assert row.deleted_at is not None
+    # 7) CSV 导入的同一条可以重新进来（去重集合只看未删除的）
+    r = client.post("/api/transactions", json={**payload, "note": "火锅"}, headers=headers)
+    assert r.status_code == 201
+
+
+def test_memory_facts_roundtrip():
+    """长期记忆：AI 能记住、能忘掉，事实进的是结构化表而不是向量库。"""
+    user = _register()
+    headers = _login(user["username"])
+
+    from app.routers import chat as chat_router
+
+    script = [
+        {
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "c1",
+                    "name": "remember_fact",
+                    "arguments": '{"kind":"income_pattern","key":"生活费到账日","value":"每月 1 号到账 2000 元"}',
+                }
+            ],
+        },
+        {"content": "记住了，每月 1 号到账 2000。", "tool_calls": []},
+    ]
+    fake, _ = _fake_chat_tools(script)
+    original = chat_router.llm.chat_tools
+    chat_router.llm.chat_tools = fake
+    try:
+        r = client.post("/api/chat", json={"message": "我每月 1 号到账 2000"}, headers=headers)
+        assert r.status_code == 200, r.text
+        trace = r.json()["trace"][0]
+        assert trace["result"]["ok"] is True
+    finally:
+        chat_router.llm.chat_tools = original
+
+    # 下一次对话时事实应该出现在系统提示词里
+    seen_prompt = {}
+
+    def spy(messages, tools, **kw):
+        seen_prompt["system"] = messages[0]["content"]
+        return {"content": "好的", "tool_calls": []}
+
+    chat_router.llm.chat_tools = spy
+    try:
+        client.post("/api/chat", json={"message": "你好"}, headers=headers)
+    finally:
+        chat_router.llm.chat_tools = original
+
+    assert "生活费到账日" in seen_prompt["system"]
+    assert "每月 1 号到账 2000 元" in seen_prompt["system"]
+
+    # 忘掉
+    script2 = [
+        {
+            "content": "",
+            "tool_calls": [{"id": "c2", "name": "forget_fact", "arguments": '{"key":"生活费到账日"}'}],
+        },
+        {"content": "已忘掉。", "tool_calls": []},
+    ]
+    fake2, _ = _fake_chat_tools(script2)
+    chat_router.llm.chat_tools = fake2
+    try:
+        r = client.post("/api/chat", json={"message": "那条记忆不对，删掉"}, headers=headers)
+        assert r.status_code == 200
+        assert r.json()["trace"][0]["result"]["ok"] is True
+    finally:
+        chat_router.llm.chat_tools = original
+
+    # 再看提示词，事实已消失
+    seen_prompt.clear()
+    chat_router.llm.chat_tools = spy
+    try:
+        client.post("/api/chat", json={"message": "你好"}, headers=headers)
+    finally:
+        chat_router.llm.chat_tools = original
+    assert "生活费到账日" not in seen_prompt["system"]

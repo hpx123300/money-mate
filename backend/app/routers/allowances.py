@@ -27,6 +27,7 @@ def _month_spent(db: Session, user_id: int) -> Decimal:
     rows = db.exec(
         select(Transaction).where(
             Transaction.user_id == user_id,
+            Transaction.deleted_at.is_(None),
             Transaction.type == "expense",
             Transaction.occurred_at.startswith(month),
         )
