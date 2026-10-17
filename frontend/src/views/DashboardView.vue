@@ -31,6 +31,29 @@ const aiDraft = reactive({
 const aiSummary = ref("");
 const aiSummaryLoading = ref(false);
 
+// 主动洞察：预算进度、异常消费、生活费见底
+interface Insight {
+  id: string;
+  level: "warn" | "info";
+  title: string;
+  detail: string;
+}
+const insights = ref<Insight[]>([]);
+
+async function loadInsights() {
+  try {
+    const { data } = await api.get(`/insights?month=${month.value}`);
+    insights.value = data.insights || [];
+  } catch {
+    insights.value = [];
+  }
+}
+
+async function dismissInsight(id: string) {
+  insights.value = insights.value.filter((i) => i.id !== id);
+  await api.post(`/insights/${id}/dismiss`).catch(() => {});
+}
+
 const walletDialog = ref(false);
 const walletForm = reactive({ name: "", balance: 0 });
 
@@ -223,17 +246,40 @@ onMounted(() => {
   loadCategories();
   loadMonthlySummary();
   loadAllowance();
+  loadInsights();
+  // AI 对话面板确认记账后广播这个事件，页面自己决定要不要刷新
+  window.addEventListener("moneymate:refresh", refreshAll);
 });
+
+function refreshAll() {
+  load();
+  loadWallets();
+  loadMonthlySummary();
+  loadAllowance();
+  loadInsights();
+}
 </script>
 
 <template>
-  <div class="page">
+  <div class="page" v-loading="!summary">
     <div class="toolbar">
       <el-date-picker v-model="month" type="month" value-format="YYYY-MM" @change="load" />
       <span class="spacer" />
       <el-button @click="$router.push('/report')">🗓️ 年度报告</el-button>
       <el-button @click="load">刷新</el-button>
     </div>
+
+    <!-- 主动洞察：不等用户来查，先把「哪里不对劲」说清楚 -->
+    <el-card v-for="ins in insights" :key="ins.id" class="insight-card" style="margin-bottom: 12px">
+      <div class="insight-row">
+        <span class="insight-dot" :class="ins.level" />
+        <div class="insight-body">
+          <div class="insight-title">{{ ins.title }}</div>
+          <div class="insight-detail">{{ ins.detail }}</div>
+        </div>
+        <el-button text size="small" @click="dismissInsight(ins.id)">知道了</el-button>
+      </div>
+    </el-card>
 
     <el-card class="ai-card" style="margin-bottom: 12px">
       <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
@@ -556,5 +602,39 @@ onMounted(() => {
   font-size: 13px;
   margin-top: 2px;
   opacity: 0.8;
+}
+/* 主动洞察卡片：左侧一条状态色，右侧文字，最右「知道了」 */
+.insight-card {
+  border-left: 3px solid var(--accent) !important;
+}
+.insight-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.insight-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+  background: var(--accent);
+}
+.insight-dot.warn {
+  background: #e8a33d;
+}
+.insight-body {
+  flex: 1;
+  min-width: 0;
+}
+.insight-title {
+  font-size: 13.5px;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+.insight-detail {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-secondary);
 }
 </style>

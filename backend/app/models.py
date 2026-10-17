@@ -3,7 +3,7 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import Column, Numeric
+from sqlalchemy import Column, Index, Numeric
 from sqlmodel import Field, SQLModel
 
 
@@ -42,6 +42,10 @@ class Category(SQLModel, table=True):
 class Transaction(SQLModel, table=True):
     """一笔收支记录"""
 
+    # 统计接口的查询几乎都是「某用户 + 某时间段」，单列索引只能命中一半条件，
+    # 复合索引能一次定位到区间，数据量上来后差别很明显。
+    __table_args__ = (Index("ix_transaction_user_date", "user_id", "occurred_at"),)
+
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(index=True, foreign_key="user.id")
     category_id: int = Field(index=True, foreign_key="category.id")
@@ -50,6 +54,8 @@ class Transaction(SQLModel, table=True):
     type: str = Field(index=True)  # income / expense
     note: str = Field(default="")
     occurred_at: date = Field(default_factory=date.today, index=True)
+    # 客户端生成的幂等键：双击提交或网络重试时，同一笔不会记两次
+    client_token: str | None = Field(default=None, index=True, max_length=64)
     created_at: datetime = Field(default_factory=utcnow)
 
 

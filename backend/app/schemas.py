@@ -52,10 +52,6 @@ class AiParseRequest(BaseModel):
     text: str = Field(min_length=1, max_length=200)
 
 
-class AiCategoryRequest(BaseModel):
-    note: str = Field(min_length=1, max_length=200)
-
-
 class AiParseResult(BaseModel):
     type: str
     amount: MoneyDecimal
@@ -65,12 +61,6 @@ class AiParseResult(BaseModel):
     wallet: str | None
     note: str
     occurred_at: date
-
-
-class AiCategoryResult(BaseModel):
-    category_id: int
-    category: str
-    type: str
 
 
 class AiSummaryResult(BaseModel):
@@ -103,6 +93,9 @@ class TransactionCreate(BaseModel):
     type: str = Field(pattern="^(income|expense)$")
     note: str = Field(default="", max_length=200)
     occurred_at: date = Field(default_factory=date.today)
+    # 幂等键：前端每次提交生成一个 uuid，重试/双击带同一个值，
+    # 服务端据此判断「这笔已经记过了」，直接返回原记录。
+    client_token: str | None = Field(default=None, max_length=64)
 
 
 class TransactionUpdate(BaseModel):

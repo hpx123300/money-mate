@@ -1,13 +1,22 @@
-<!-- 主框架：左侧菜单 + 顶部用户信息 -->
+<!-- 主框架：桌面端左侧菜单 + 顶部用户信息；移动端底部 tab 栏 -->
 
 <script setup lang="ts">
 import { onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
+import AiChatPanel from "./AiChatPanel.vue";
 
 const auth = useAuthStore();
 const router = useRouter();
 const route = useRoute();
+
+// 移动端底部导航：侧边栏在 768px 以下隐藏，否则内容区会被挤到只剩两百多像素
+const TABS = [
+  { path: "/dashboard", icon: "📊", label: "概览" },
+  { path: "/transactions", icon: "🧾", label: "流水" },
+  { path: "/budget", icon: "🎯", label: "预算" },
+  { path: "/report", icon: "🗓️", label: "报告" },
+];
 
 onMounted(() => {
   if (!auth.user) auth.fetchMe().catch(() => {});
@@ -21,7 +30,7 @@ function logout() {
 
 <template>
   <el-container style="min-height: 100vh">
-    <el-aside width="212px" style="padding: 14px 0 14px 14px">
+    <el-aside width="212px" class="app-aside">
       <div class="glass sidebar-shell" style="height: calc(100vh - 28px); padding: 18px 6px; display: flex; flex-direction: column">
         <div class="sidebar-logo">
           <span class="logo-emoji">🎓</span>
@@ -47,10 +56,25 @@ function logout() {
         <span class="header-user">👋 {{ auth.user?.username || "加载中…" }}</span>
         <el-button size="small" @click="logout">退出登录</el-button>
       </el-header>
-      <el-main style="padding: 0">
+      <el-main class="app-main">
         <router-view />
       </el-main>
     </el-container>
+
+    <!-- 移动端底部导航 -->
+    <nav class="mobile-tabs">
+      <router-link
+        v-for="tab in TABS"
+        :key="tab.path"
+        :to="tab.path"
+        :class="['mobile-tab', route.path === tab.path ? 'active' : '']"
+      >
+        <span class="mobile-tab-icon">{{ tab.icon }}</span>
+        <span>{{ tab.label }}</span>
+      </router-link>
+    </nav>
+
+    <AiChatPanel />
   </el-container>
 </template>
 
@@ -116,5 +140,49 @@ function logout() {
   font-size: 13.5px;
   color: var(--text-secondary);
   font-weight: 500;
+}
+
+.mobile-tabs {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .app-aside {
+    display: none;
+  }
+  .app-main {
+    padding-bottom: 72px;
+  }
+  .mobile-tabs {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(18px);
+    border-top: 1px solid rgba(102, 126, 234, 0.14);
+  }
+  .mobile-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    padding: 4px 12px;
+    border-radius: 10px;
+  }
+  .mobile-tab.active {
+    color: var(--accent);
+    background: rgba(102, 126, 234, 0.08);
+  }
+  .mobile-tab-icon {
+    font-size: 16px;
+  }
 }
 </style>

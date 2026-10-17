@@ -11,7 +11,18 @@ from fastapi.responses import FileResponse, JSONResponse
 from .config import settings
 from .cache import cache
 from .database import init_db
-from .routers import ai, allowances, auth, budget, categories, stats, transactions, wallets
+from .routers import (
+    ai,
+    allowances,
+    auth,
+    budget,
+    categories,
+    chat,
+    insights,
+    stats,
+    transactions,
+    wallets,
+)
 from .seed_demo import maybe_seed_demo
 
 logger = logging.getLogger("moneymate")
@@ -50,6 +61,10 @@ app.include_router(transactions.router)
 app.include_router(budget.router)
 app.include_router(stats.router)
 app.include_router(ai.router)
+# AI 对话入口：一个对话框里记账 / 查询 / 改预算（写操作只出草稿）
+app.include_router(chat.router)
+# 主动洞察：预算进度、异常消费、生活费见底
+app.include_router(insights.router)
 
 
 # 兜底异常处理：避免把内部错误堆栈直接暴露给用户

@@ -111,7 +111,21 @@ def create_transaction(
     current: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """记一笔：校验分类属于当前用户，且类型与分类类型一致。"""
+    """记一笔：校验分类属于当前用户，且类型与分类类型一致。
+
+    带 client_token 时做幂等：同一个 token 第二次提交直接返回已有记录，
+    不会记成两笔。前端双击、网络超时重试都会撞上这种情况。
+    """
+    if data.client_token:
+        existing = db.exec(
+            select(Transaction).where(
+                Transaction.user_id == current.id,
+                Transaction.client_token == data.client_token,
+            )
+        ).first()
+        if existing:
+            return _to_read(existing, _category_names(db, current.id), _wallet_names(db, current.id))
+
     category = db.get(Category, data.category_id)
     if not category or category.user_id != current.id:
         raise HTTPException(status_code=400, detail="分类不存在")
@@ -129,6 +143,7 @@ def create_transaction(
         type=data.type,
         note=data.note,
         occurred_at=data.occurred_at,
+        client_token=data.client_token,
     )
     db.add(t)
     db.commit()

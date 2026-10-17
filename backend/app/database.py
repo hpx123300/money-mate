@@ -38,7 +38,7 @@ def init_db() -> None:
 
 def _migrate() -> None:
     """
-    轻量迁移：给旧版本已有的 transaction 表补上 wallet_id 列。
+    轻量迁移：给旧版本已有的 transaction 表补列、补索引。
     生产项目应该用 Alembic 管理迁移，这里是教学项目的最小实现。
     """
     inspector = inspect(engine)
@@ -51,6 +51,20 @@ def _migrate() -> None:
                 text('ALTER TABLE "transaction" ADD COLUMN wallet_id INTEGER REFERENCES wallet(id)')
             )
             logger.info("迁移：transaction 表已补充 wallet_id 列")
+    if "client_token" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text('ALTER TABLE "transaction" ADD COLUMN client_token VARCHAR(64)'))
+            logger.info("迁移：transaction 表已补充 client_token 列")
+
+    # 复合索引：统计查询是「user_id = ? AND occurred_at BETWEEN ?」，
+    # 单列索引只能命中一半条件。create_all 不会给已存在的表补索引，这里手动建。
+    indexes = {idx["name"] for idx in inspector.get_indexes("transaction")}
+    if "ix_transaction_user_date" not in indexes:
+        with engine.begin() as conn:
+            conn.execute(
+                text('CREATE INDEX IF NOT EXISTS ix_transaction_user_date ON "transaction" (user_id, occurred_at)')
+            )
+            logger.info("迁移：transaction 表已创建复合索引 (user_id, occurred_at)")
 
 
 def _ensure_default_wallets() -> None:

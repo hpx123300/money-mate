@@ -153,3 +153,59 @@ def chat_text_stream(prompt: str, system: str, temperature: float = 0.4):
             except (json.JSONDecodeError, KeyError, IndexError):
                 continue
 
+
+
+def chat_tools(
+    messages: list[dict],
+    tools: list[dict],
+    temperature: float = 0.2,
+    max_tokens: int = 800,
+) -> dict:
+    """带工具调用的一轮对话（Function Calling）。
+
+    返回 {"content": str, "tool_calls": [{"id","name","arguments"}]}。
+    只负责「问模型要什么工具」，不负责执行——执行与回填由调用方做，
+    这样工具实现和模型客户端解耦，测试时可以只 mock 这一层。
+    """
+    if not settings.llm_api_key:
+        raise LLMError("未配置 LLM_API_KEY，请在 .env 或部署平台环境变量里设置")
+
+    payload = {
+        "model": settings.llm_model,
+        "messages": messages,
+        "tools": tools,
+        "tool_choice": "auto",
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    req = urllib.request.Request(
+        f"{settings.llm_base_url}/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {settings.llm_api_key}",
+        },
+    )
+    with _open_with_retry(req, timeout=45) as resp:
+        raw = resp.read().decode("utf-8")
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise LLMError("LLM 返回的不是合法 JSON") from e
+
+    try:
+        message = data["choices"][0]["message"]
+    except (KeyError, IndexError, TypeError) as e:
+        raise LLMError("LLM 返回内容格式不对") from e
+
+    calls = []
+    for tc in message.get("tool_calls") or []:
+        fn = tc.get("function") or {}
+        calls.append(
+            {
+                "id": tc.get("id") or "",
+                "name": fn.get("name") or "",
+                "arguments": fn.get("arguments") or "{}",
+            }
+        )
+    return {"content": (message.get("content") or "").strip(), "tool_calls": calls}
