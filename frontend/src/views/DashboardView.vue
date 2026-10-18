@@ -496,7 +496,7 @@ function refreshAll() {
   inset: -1px;
   border-radius: var(--radius-lg);
   padding: 1px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: linear-gradient(135deg, #4f46e5, #06b6d4);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;

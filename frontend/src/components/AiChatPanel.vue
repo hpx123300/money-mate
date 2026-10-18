@@ -182,7 +182,7 @@ async function confirmAction(action: Action) {
   gap: 6px;
   padding: 11px 16px;
   border-radius: 999px;
-  background: var(--accent, #667eea);
+  background: var(--accent, #4f46e5);
   color: #fff;
   font-size: 13.5px;
   cursor: pointer;
@@ -246,7 +246,7 @@ async function confirmAction(action: Action) {
   cursor: pointer;
 }
 .ai-chip:hover {
-  border-color: var(--accent, #667eea);
+  border-color: var(--accent, #4f46e5);
 }
 
 .ai-row {
@@ -269,7 +269,7 @@ async function confirmAction(action: Action) {
   color: var(--text-primary, #1f2430);
 }
 .ai-row.user .ai-bubble {
-  background: var(--accent, #667eea);
+  background: var(--accent, #4f46e5);
   border-color: transparent;
   color: #fff;
 }

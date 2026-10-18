@@ -30,10 +30,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 保持与本地相同的目录结构（backend/app），这样 config.py 里
 # 计算的项目根目录在容器内也是 /app，数据库才能写进挂载的 /app/data
 COPY backend/app ./backend/app
+
+# 迁移文件与配置：启动前先 alembic upgrade head，避免容器里的库结构落后于代码
+COPY alembic.ini ./
+COPY migrations ./migrations
 COPY --from=frontend /web/dist ./backend/app/static
 
 EXPOSE 8000
 
 # 默认 8000（本地 / Docker Compose）；平台注入 PORT 时自动切换
 # （Render、Zeabur 默认 8000，Hugging Face Spaces 注入 7860）
-CMD sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --app-dir backend"
+CMD sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --app-dir backend"

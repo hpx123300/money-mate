@@ -164,7 +164,7 @@ def get_budget(month: str = "") -> str:
 @server.tool(description="查生活费状态：总额、已花、剩余、日均可用、还能撑几天。")
 def get_allowance_status() -> str:
     try:
-        data = _get("/api/allowances")
+        data = _get("/api/allowance")
     except Exception as exc:  # noqa: BLE001
         return _dump({"error": str(exc)})
     return _dump(data)

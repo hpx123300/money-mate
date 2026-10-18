@@ -17,6 +17,8 @@ if curl -s -o /dev/null http://127.0.0.1:8000; then
 fi
 
 echo "正在启动 有数..."
+# 启动前先对齐库结构：Alembic 幂等，已经是 head 就什么都不做
+.venv/bin/alembic upgrade head || { echo "数据库迁移失败，请看上方报错"; exit 1; }
 cd backend
 ../.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 &
 PID=$!

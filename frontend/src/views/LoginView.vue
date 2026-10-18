@@ -104,7 +104,7 @@ async function demoLogin() {
 
         <div class="brand-footer">
           <span class="brand-dot"></span>
-          已服务 1,000+ 大学生的记账需求
+          本地部署 · 账目数据不出设备
         </div>
       </div>
     </aside>
@@ -164,7 +164,7 @@ async function demoLogin() {
   align-items: center;
   justify-content: center;
   padding: 48px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
   color: #fff;
 }
 
