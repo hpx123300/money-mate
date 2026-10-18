@@ -186,6 +186,30 @@ AI 功能的效果可以复现地量化，不是靠感觉说「挺好用」。
 
 顺带发现两个还没解决的问题，写在说明文档里：多笔输入只返回一笔（需要改接口契约），以及注入抵抗在重复测试下只有 2/3 稳定（靠提示词不可靠）。
 
+## 接入智能体（MCP）
+
+`mcp_server.py` 把记账能力挂给 OpenClaw、Claude Desktop 之类的客户端，四个工具：
+`parse_expense`（一句话转草稿）、`query_spending`（月度收支）、`get_budget`、`get_allowance_status`。
+
+```bash
+# 先启动服务（默认 127.0.0.1:8000）
+MONEYMATE_USER=demo MONEYMATE_PASSWORD=demo123456 python mcp_server.py
+```
+
+挂到 OpenClaw：
+
+```bash
+openclaw mcp add moneymate --command "python" --args "/绝对路径/mcp_server.py"
+```
+
+两个刻意的边界：
+
+- **只做协议适配，不重复实现业务。** MCP 调的是本机已有的 REST 接口。记账的幂等键、
+  软删除、金额精度、分类口径都在业务层，如果在这一层再写一遍「解析一句话」，
+  两套实现迟早漂移——线上用 A、智能体用 B，数字对不上时没人能解释。
+- **只出草稿，不落库。** 和在应用里一样：AI 判断错了，让用户点一下的成本，
+  远低于记错一笔再回头改。
+
 ## 部署
 
 仓库根目录的 `render.yaml` 已配好 Render Blueprint（Docker、免费套餐、健康检查）。部署步骤见 [说明文档.md](说明文档.md)。
