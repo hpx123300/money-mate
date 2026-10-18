@@ -66,9 +66,9 @@ async function demoLogin() {
       <div class="brand-inner">
         <div class="brand-logo">
           <span class="brand-emoji">🎓</span>
-          <span class="brand-name gradient-text-on-dark">MoneyMate</span>
+          <span class="brand-name gradient-text-on-dark">有数</span>
         </div>
-        <h1 class="brand-title">大学生记账助手</h1>
+        <h1 class="brand-title">大学生花钱助手</h1>
         <p class="brand-tagline">生活费不超支，钱花在哪一目了然</p>
 
         <ul class="feature-list">

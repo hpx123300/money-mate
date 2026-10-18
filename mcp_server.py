@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MoneyMate 的 MCP Server：让外部智能体（OpenClaw / Claude Desktop）能记账、查账。
+"""有数 的 MCP Server：让外部智能体（OpenClaw / Claude Desktop）能记账、查账。
 
 设计上有个刻意的选择：**这里不重新实现业务，只是协议适配层**。
 
@@ -32,10 +32,10 @@ PASSWORD = os.getenv("MONEYMATE_PASSWORD", "demo123456")
 TIMEOUT = float(os.getenv("MONEYMATE_TIMEOUT", "20"))
 
 server = MCPServer(
-    name="moneymate",
+    name="youshu",
     version="1.0.0",
     instructions=(
-        "大学生记账助手。用户说「午饭 25」「这个月花了多少」时用这里的工具。"
+        "大学生花钱助手。用户说「午饭 25」「这个月花了多少」时用这里的工具。"
         "记账只生成草稿，不直接写库——要让用户在应用里确认，"
         "因为记错一笔的代价远高于多点一下。"
     ),

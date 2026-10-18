@@ -62,10 +62,10 @@ class Cache:
                     settings.redis_url, decode_responses=True
                 )
                 self._redis.ping()
-                logging.getLogger("moneymate").info("已连接 Redis：%s", settings.redis_url)
+                logging.getLogger("youshu").info("已连接 Redis：%s", settings.redis_url)
             except Exception:
                 self._redis = None
-                logging.getLogger("moneymate").warning("Redis 连接失败，降级为内存缓存")
+                logging.getLogger("youshu").warning("Redis 连接失败，降级为内存缓存")
         self._mem = MemoryCache()
 
     @property

@@ -9,7 +9,7 @@ from sqlmodel import SQLModel, Session, create_engine, select, update
 from .config import settings
 from .models import Transaction, User, Wallet
 
-logger = logging.getLogger("moneymate")
+logger = logging.getLogger("youshu")
 
 # SQLite 需要这个参数允许跨线程访问（FastAPI 线程池）
 connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}

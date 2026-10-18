@@ -36,7 +36,7 @@ def request(method: str, path: str, body=None, headers=None, files=None):
     data = None
     req_headers = dict(headers or {})
     if files:
-        boundary = "----moneymate" + uuid.uuid4().hex
+        boundary = "----youshu" + uuid.uuid4().hex
         parts = []
         for field, (filename, content, ctype) in files.items():
             parts.append(
@@ -69,7 +69,7 @@ def main():
 
     for path in ("/dashboard", "/transactions", "/budget", "/report"):
         code, raw = request("GET", path)
-        check(f"前端路由 {path}", code == 200 and "大学生记账助手" in raw, f"{code}")
+        check(f"前端路由 {path}", code == 200 and "大学生花钱助手" in raw, f"{code}")
 
     # ---------- 账号 ----------
     name = "smoke" + uuid.uuid4().hex[:6]

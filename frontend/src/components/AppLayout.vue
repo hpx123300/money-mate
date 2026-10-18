@@ -34,7 +34,7 @@ function logout() {
       <div class="glass sidebar-shell" style="height: calc(100vh - 28px); padding: 18px 6px; display: flex; flex-direction: column">
         <div class="sidebar-logo">
           <span class="logo-emoji">🎓</span>
-          <span class="gradient-text logo-text">大学生记账助手</span>
+          <span class="gradient-text logo-text">有数</span>
         </div>
         <el-menu :default-active="route.path" router>
           <el-menu-item index="/dashboard">📊 仪表盘</el-menu-item>

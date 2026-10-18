@@ -189,4 +189,4 @@ if __name__ == "__main__":
     init_db()
     with Session(engine) as session:
         created = seed_demo(session)
-    logging.getLogger("moneymate").info("已创建演示数据" if created else "演示账号已存在，跳过")
+    logging.getLogger("youshu").info("已创建演示数据" if created else "演示账号已存在，跳过")

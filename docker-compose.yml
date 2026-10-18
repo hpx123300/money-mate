@@ -4,22 +4,22 @@ services:
       context: .
       # 项目只有根目录一份 Dockerfile（render.yaml 也指向它）
       dockerfile: Dockerfile
-    container_name: moneymate-web
+    container_name: youshu-web
     ports:
       - "8000:8000"
     environment:
       REDIS_URL: redis://redis:6379/0
     volumes:
       # 持久化 SQLite 数据库，容器重建数据不丢
-      - moneymate-data:/app/data
+      - youshu-data:/app/data
     depends_on:
       - redis
     restart: unless-stopped
 
   redis:
     image: redis:8-alpine
-    container_name: moneymate-redis
+    container_name: youshu-redis
     restart: unless-stopped
 
 volumes:
-  moneymate-data:
+  youshu-data:

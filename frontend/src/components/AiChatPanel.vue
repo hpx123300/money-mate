@@ -4,7 +4,7 @@
   设计上的两个决定：
   1. 写操作只出草稿，卡片上必须点「确认」才真正入库——AI 判断错了，
      用户改一下的成本远低于记错一笔再回头找。
-  2. 确认成功后广播 moneymate:refresh 事件，各页面自己决定要不要重新拉数据，
+  2. 确认成功后广播 youshu:refresh 事件，各页面自己决定要不要重新拉数据，
      避免为了一个悬浮组件把全局状态改造成一套事件总线。
 -->
 
@@ -91,7 +91,7 @@ async function confirmAction(action: Action) {
       ElMessage.success("预算已更新");
     }
     // 通知页面刷新：悬浮组件不该直接操作各页面的状态
-    window.dispatchEvent(new CustomEvent("moneymate:refresh"));
+    window.dispatchEvent(new CustomEvent("youshu:refresh"));
     messages.value.push({ role: "assistant", content: "好了，已经生效。" });
   } catch (e: any) {
     ElMessage.error(e.response?.data?.detail || "操作失败");
@@ -109,7 +109,7 @@ async function confirmAction(action: Action) {
     <div class="ai-panel">
       <header class="ai-head">
         <div>
-          <div class="ai-title">AI 记账助手</div>
+          <div class="ai-title">AI 花钱助手</div>
           <div class="ai-sub">记账、查花销、改预算，一句话就行</div>
         </div>
         <el-button text @click="open = false">关闭</el-button>

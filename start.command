@@ -1,5 +1,5 @@
 #!/bin/bash
-# MoneyMate 本地启动（数据保存在电脑里，不会丢失）
+# 有数 本地启动（数据保存在电脑里，不会丢失）
 cd "$(dirname "$0")"
 
 if [ ! -d ".venv" ]; then
@@ -16,7 +16,7 @@ if curl -s -o /dev/null http://127.0.0.1:8000; then
   exit 0
 fi
 
-echo "正在启动 MoneyMate..."
+echo "正在启动 有数..."
 cd backend
 ../.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 &
 PID=$!

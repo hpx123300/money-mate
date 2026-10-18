@@ -17,7 +17,7 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
 
 # 测试专用数据库，不污染开发数据
-_TMP_DB = Path(tempfile.gettempdir()) / "moneymate_test.db"
+_TMP_DB = Path(tempfile.gettempdir()) / "youshu_test.db"
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMP_DB}"
 os.environ["APP_ENV"] = "test"
 # 不真调大模型，AI 接口的测试自行 mock

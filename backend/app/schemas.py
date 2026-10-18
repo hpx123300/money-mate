@@ -45,7 +45,7 @@ class CategoryRead(BaseModel):
     type: str
 
 
-# ============ AI 记账助手 ============
+# ============ AI 花钱助手 ============
 
 
 class AiParseRequest(BaseModel):

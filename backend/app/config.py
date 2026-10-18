@@ -22,7 +22,7 @@ class Settings:
         self.llm_base_url = os.getenv("LLM_BASE_URL", "https://api.deepseek.com").rstrip("/")
         self.llm_model = os.getenv("LLM_MODEL", "deepseek-chat")
         # 默认数据库放在项目 data/ 目录，保持仓库整洁
-        default_db = f"sqlite:///{os.path.join(BASE_DIR, 'data', 'moneymate.db')}"
+        default_db = f"sqlite:///{os.path.join(BASE_DIR, 'data', 'youshu.db')}"
         self.database_url = os.getenv("DATABASE_URL", default_db)
         self.redis_url = os.getenv("REDIS_URL", "")
         # CORS 白名单：开发环境允许所有来源，生产环境必须指定域名（逗号分隔）

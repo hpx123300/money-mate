@@ -251,7 +251,7 @@ onMounted(() => {
   loadAllowance();
   loadInsights();
   // AI 对话面板确认记账后广播这个事件，页面自己决定要不要刷新
-  window.addEventListener("moneymate:refresh", refreshAll);
+  window.addEventListener("youshu:refresh", refreshAll);
 });
 
 function refreshAll() {

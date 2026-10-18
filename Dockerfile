@@ -1,7 +1,7 @@
-# MoneyMate 单镜像构建：先构建前端，再由 Python 后端一并托管。
+# 有数 单镜像构建：先构建前端，再由 Python 后端一并托管。
 #
 # 这是项目里唯一的 Dockerfile，构建上下文是仓库根目录：
-#     docker build -t moneymate .
+#     docker build -t youshu .
 # render.yaml（Render Blueprint）与 docker-compose.yml 都指向本文件。
 # 之前 backend/ 下还有一份内容相同、需要人工保持同步的副本，已删除。
 

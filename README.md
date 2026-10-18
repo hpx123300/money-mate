@@ -1,6 +1,7 @@
-# 有数 · 大学生 AI 记账助手（MoneyMate）
+# 有数 · 大学生 AI 花钱助手
 
-面向**大学生记账场景**的 Python 全栈 Web 应用。支持多钱包、月度预算、生活费规划、统计报表，以及基于大模型的 AI 一句话记账。
+面向**大学生花钱场景**的 Python 全栈 Web 应用：不是让你「记完账」，而是让你「花得明白」。
+支持多钱包、月度预算、生活费规划、统计报表，以及基于大模型的 AI 一句话记账。
 
 > 一句话记一笔，月底心里有数。产品定位与完整介绍见 [项目介绍.md](项目介绍.md)。
 
@@ -49,8 +50,8 @@ cp .env.example .env          # 填入 LLM_API_KEY 可开启 AI 功能（不配�
 Docker：
 
 ```bash
-docker build -t moneymate .
-docker run -p 8000:8000 moneymate
+docker build -t youshu .
+docker run -p 8000:8000 youshu
 ```
 
 ## 核心设计
@@ -150,6 +151,12 @@ AI 功能的效果可以复现地量化，不是靠感觉说「挺好用」。
 # AI 一句话记账：100 条标注测试集，字段级准确率 + 分类混淆 + 追问正确率 + 多笔 + 对抗
 .venv/bin/python scripts/eval_ai_parse.py --save
 
+# 调提示词时只看 dev（81 条）
+.venv/bin/python scripts/eval_ai_parse.py --split dev
+
+# 改完提示词，再跑一次 holdout（19 条，调参时不要看）
+.venv/bin/python scripts/eval_ai_parse.py --split holdout --save
+
 # 先跑几条快速验证
 .venv/bin/python scripts/eval_ai_parse.py --limit 10
 
@@ -159,6 +166,12 @@ AI 功能的效果可以复现地量化，不是靠感觉说「挺好用」。
 # 与历史结果对比
 .venv/bin/python scripts/eval_ai_parse.py --baseline data/eval/results/2026-10-16_before.json
 ```
+
+**dev / holdout 分开是刻意的。** 一边调提示词一边看全量，最后那个 100% 只证明「拟合了这 100 条」，
+不证明泛化。所以数据集按 id 固定分桶：81 条 dev 随便看，19 条 holdout 只在改完之后跑一次。
+
+一个诚实的说明：这 19 条在 2026-10-18 之前已经被调参看过，属于历史污染。
+从下一轮提示词改动起它们才算「没见过」；要彻底干净，需要补 20 条新用例。
 
 数据集与判分口径：`data/eval/parse_cases.json`（口径写在文件头部，改数据集要同步改口径）。
 历次结果：`data/eval/results/`。
@@ -201,7 +214,7 @@ MONEYMATE_USER=demo MONEYMATE_PASSWORD=demo123456 python mcp_server.py
 挂到 OpenClaw：
 
 ```bash
-openclaw mcp add moneymate --command "python" --args "/绝对路径/mcp_server.py"
+openclaw mcp add youshu --command "python" --args "/绝对路径/mcp_server.py"
 ```
 
 两个刻意的边界：

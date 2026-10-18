@@ -33,7 +33,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "backend"))
 
 # ---- 环境必须在 import app.* 之前固定：settings 是模块级单例，导入即读死 ----
-_TMP_DB = Path(tempfile.gettempdir()) / "moneymate_eval.db"
+_TMP_DB = Path(tempfile.gettempdir()) / "youshu_eval.db"
 if _TMP_DB.exists():
     _TMP_DB.unlink()
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMP_DB}"
@@ -401,6 +401,12 @@ def main() -> None:
     ap.add_argument("--repeat", type=int, default=0, help="额外做稳定性 Pass@k")
     ap.add_argument("--save", action="store_true", help="把结果保存到 data/eval/results/")
     ap.add_argument("--baseline", type=str, default="", help="与指定的历史结果文件对比")
+    ap.add_argument(
+        "--split",
+        choices=["all", "dev", "holdout"],
+        default="all",
+        help="dev=调参用，holdout=验收用（调参时不要看），all=全量并分组汇报",
+    )
     args = ap.parse_args()
 
     from app.config import settings
@@ -410,6 +416,13 @@ def main() -> None:
 
     dataset = json.loads(CASES_PATH.read_text(encoding="utf-8"))
     cases = dataset["cases"]
+    if args.split != "all":
+        # 调提示词只看 dev，改完再跑一次 holdout 验收；
+        # 两边混着调，100% 只能证明「拟合了这 100 条」。
+        want = args.split == "holdout"
+        cases = [c for c in cases if bool(c.get("holdout")) == want]
+        if not cases:
+            _fail(f"--split {args.split} 没有匹配到用例")
     if args.only:
         wanted = {x.strip() for x in args.only.split(",") if x.strip()}
         cases = [c for c in cases if c["id"] in wanted]
@@ -432,6 +445,24 @@ def main() -> None:
     print()
     case_map = {c["id"]: c for c in cases}
     summary = compute(records, case_map, today)
+
+    if args.split == "all" and any(c.get("holdout") for c in cases):
+        # 混在一起看总数会掩盖问题：dev 100% + holdout 80% 和整体 96% 是两种完全不同的处境
+        print("\n按集合拆分（dev 用于调参，holdout 用于验收）：")
+        for label, want in (("dev", False), ("holdout", True)):
+            ids = {c["id"] for c in cases if bool(c.get("holdout")) == want}
+            sub_records = [r for r in records if r["id"] in ids]
+            if not sub_records:
+                continue
+            sub = compute(sub_records, {cid: case_map[cid] for cid in ids}, today)
+            ok = sum(sub["field_ok"].values())
+            tot = sum(sub["field_total"].values())
+            print(
+                f"  {label:<8} n={len(sub_records):>3}  字段准确 {pct(ok, tot)}"
+                f"  金额 {pct(sub['field_ok'].get('amount', 0), sub['field_total'].get('amount', 0))}"
+                f"  分类 {pct(sub['field_ok'].get('category', 0), sub['field_total'].get('category', 0))}"
+            )
+        print("  提示：调提示词时只跑 --split dev；改完再跑 --split holdout 看是否真的变好。\n")
 
     meta = {
         "dataset": str(CASES_PATH.relative_to(ROOT)),

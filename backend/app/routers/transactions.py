@@ -412,7 +412,7 @@ def import_template():
     return Response(
         content=content,
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": 'attachment; filename="moneymate_template.csv"'},
+        headers={"Content-Disposition": 'attachment; filename="youshu_template.csv"'},
     )
 
 
@@ -440,7 +440,7 @@ def export_csv(
              names.get(t.category_id, ""), t.amount, t.note]
         )
     buf.seek(0)
-    filename = f"moneymate_{month or 'all'}.csv"
+    filename = f"youshu_{month or 'all'}.csv"
     return StreamingResponse(
         iter([buf.getvalue()]),
         media_type="text/csv; charset=utf-8",

@@ -129,7 +129,7 @@ async function exportCsv() {
   const url = URL.createObjectURL(res.data);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `moneymate_${month.value}.csv`;
+  a.download = `youshu_${month.value}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -164,7 +164,7 @@ async function downloadTemplate() {
   const url = URL.createObjectURL(res.data);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "moneymate_template.csv";
+  a.download = "youshu_template.csv";
   a.click();
   URL.revokeObjectURL(url);
 }

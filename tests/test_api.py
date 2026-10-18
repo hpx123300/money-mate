@@ -1,5 +1,5 @@
 """
-MoneyMate 接口测试。
+有数 接口测试。
 
 运行：.venv/bin/python tests/test_api.py
 
@@ -16,7 +16,7 @@ from datetime import date
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 # 测试用独立数据库，不污染开发数据
-_tmp_db = os.path.join(tempfile.gettempdir(), "moneymate_test.db")
+_tmp_db = os.path.join(tempfile.gettempdir(), "youshu_test.db")
 if os.path.exists(_tmp_db):
     os.remove(_tmp_db)
 os.environ["DATABASE_URL"] = f"sqlite:///{_tmp_db}"
@@ -96,7 +96,7 @@ def test_spa_fallback():
         return
     r = client.get("/dashboard")
     assert r.status_code == 200
-    assert "大学生记账助手" in r.text
+    assert "大学生花钱助手" in r.text
 
 
 def test_register_and_default_categories():

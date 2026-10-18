@@ -25,7 +25,7 @@ from .routers import (
 )
 from .seed_demo import maybe_seed_demo
 
-logger = logging.getLogger("moneymate")
+logger = logging.getLogger("youshu")
 
 
 @asynccontextmanager
@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="MoneyMate API",
+    title="有数 API",
     description="记账本：收支管理 + 分类 + 预算 + 统计报表",
     version="1.0.0",
     lifespan=lifespan,
