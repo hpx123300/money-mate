@@ -13,6 +13,8 @@ import sys
 import tempfile
 from datetime import date
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 # 测试用独立数据库，不污染开发数据
@@ -154,7 +156,7 @@ def test_transaction_flow():
     )
     assert r.status_code == 201
 
-    # 类型与分类不匹配 → 400
+    # 类型与分类不匹配 → 422（参数各自合法，组合矛盾）
     r = client.post(
         "/api/transactions",
         json={
@@ -165,7 +167,7 @@ def test_transaction_flow():
         },
         headers=headers,
     )
-    assert r.status_code == 400
+    assert r.status_code == 422
 
     # 本月 2 条，上个月 0 条（分页返回 {total, items}）
     data = client.get(f"/api/transactions?month={CUR_MONTH}", headers=headers).json()
@@ -404,7 +406,8 @@ def test_budget_month_mismatch():
         json={"month": "2026-09", "amount": 1000},
         headers=headers,
     )
-    assert r.status_code == 400
+    # 语义化：参数本身合法但组合矛盾，用 422（不再是笼统的 400）
+    assert r.status_code == 422
 
 
 def test_migration_creates_default_wallet():
@@ -901,9 +904,46 @@ def test_create_transaction_is_idempotent():
     }
     r1 = client.post("/api/transactions", json=payload, headers=headers)
     r2 = client.post("/api/transactions", json=payload, headers=headers)
-    assert r1.status_code == 201 and r2.status_code == 201
+    # 第一次是新建（201），重放是「已存在」而不是又建了一笔（200）
+    assert r1.status_code == 201 and r2.status_code == 200
     assert r1.json()["id"] == r2.json()["id"]
     assert client.get("/api/transactions", headers=headers).json()["total"] == 1
+
+
+def test_client_token_unique_constraint_blocks_concurrent_duplicate():
+    """并发兜底：绕过应用层判断直接插两条同 token，唯一索引必须拒绝。
+
+    应用层的「先查再插」在并发下会同时查不到，测试里模拟不了真实时序，
+    所以这里直接对数据层断言：约束存在，且第二笔写不进去。
+    """
+    from sqlalchemy.exc import IntegrityError
+
+    from app.database import engine
+    from app.models import Transaction
+    from sqlmodel import Session
+
+    user = _register()
+    headers = _login(user["username"])
+    food = next(c for c in client.get("/api/categories", headers=headers).json() if c["name"] == "餐饮")
+
+    base = dict(
+        user_id=user["id"],
+        category_id=food["id"],
+        wallet_id=None,
+        amount=1,
+        type="expense",
+        note="并发重复",
+        client_token="tok-concurrent",
+    )
+    # 用一个独立事务先提交第一笔，再尝试写第二笔
+    with Session(engine) as db:
+        db.add(Transaction(**base))
+        db.commit()
+
+    with Session(engine) as db:
+        db.add(Transaction(**{**base, "amount": 2}))
+        with pytest.raises(IntegrityError):
+            db.commit()
 
 
 # ---------------- 主动洞察 ----------------

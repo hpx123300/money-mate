@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 from ..cache import cache
 from ..database import get_db
 from ..deps import get_current_user
-from ..models import Budget, Category, Transaction, User
+from ..models import Budget, Category, Transaction, User, alive
 from ..schemas import (
     AnnualMonthPoint,
     AnnualReport,
@@ -54,7 +54,7 @@ def month_summary(
         return MonthSummary(**cached)
     query = select(Transaction).where(
         Transaction.user_id == current.id,
-        Transaction.deleted_at.is_(None),
+        alive(),
         Transaction.occurred_at.startswith(month),
     )
     rows = db.exec(query).all()
@@ -112,7 +112,7 @@ def month_trend(
     rows = db.exec(
         select(Transaction).where(
             Transaction.user_id == current.id,
-            Transaction.deleted_at.is_(None),
+            alive(),
             Transaction.occurred_at >= f"{wanted[0]}-01",
         )
     ).all()
@@ -157,7 +157,7 @@ def monthly_summary(
     rows = db.exec(
         select(Transaction).where(
             Transaction.user_id == current.id,
-            Transaction.deleted_at.is_(None),
+            alive(),
             Transaction.occurred_at.startswith(month),
         )
     ).all()
@@ -244,7 +244,7 @@ def annual_report(
     rows = db.exec(
         select(Transaction).where(
             Transaction.user_id == current.id,
-            Transaction.deleted_at.is_(None),
+            alive(),
             Transaction.occurred_at >= f"{year}-01-01",
             Transaction.occurred_at <= f"{year}-12-31",
         )

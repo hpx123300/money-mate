@@ -22,7 +22,7 @@ from sqlmodel import Session, select
 from ..cache import cache
 from ..database import get_db
 from ..deps import get_current_user
-from ..models import Allowance, Budget, Category, Transaction, User
+from ..models import Allowance, Budget, Category, Transaction, User, alive
 
 router = APIRouter(prefix="/api/insights", tags=["AI 洞察"])
 
@@ -86,7 +86,7 @@ def _anomaly_insight(user: User, db: Session, month: str) -> dict | None:
         .join(Category, Transaction.category_id == Category.id)
         .where(
             Transaction.user_id == user.id,
-            Transaction.deleted_at.is_(None),
+            alive(),
             Transaction.type == "expense",
             Transaction.occurred_at >= since,
         )
@@ -159,7 +159,7 @@ def list_insights(
     rows = db.exec(
         select(Transaction).where(
             Transaction.user_id == current.id,
-            Transaction.deleted_at.is_(None),
+            alive(),
             Transaction.occurred_at.startswith(month),
             Transaction.type == "expense",
         )

@@ -9,9 +9,9 @@
 -->
 
 <script setup lang="ts">
-import { nextTick, ref } from "vue";
+import { nextTick, ref, watch } from "vue";
 import { ElMessage } from "element-plus";
-import api from "../api";
+import api, { AI_TIMEOUT } from "../api";
 import { newClientToken } from "../utils";
 
 interface Draft {
@@ -42,7 +42,35 @@ interface ChatMsg {
 const open = ref(false);
 const input = ref("");
 const busy = ref(false);
-const messages = ref<ChatMsg[]>([]);
+
+// 对话存 sessionStorage：切页面、刷新不丢，关掉标签页就清掉。
+// 用 session 而不是 local，是因为这里面有金额，不适合长期留在本机。
+const STORAGE_KEY = "youshu.chat.v1";
+
+function loadMessages(): ChatMsg[] {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+const messages = ref<ChatMsg[]>(loadMessages());
+
+watch(
+  messages,
+  (value) => {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+    } catch {
+      // 存储满了/被禁用：不影响聊天本身，静默跳过
+    }
+  },
+  { deep: true }
+);
+
 const listRef = ref<HTMLElement | null>(null);
 
 const QUICK = ["午饭花了 25", "这个月餐饮花了多少", "我还剩多少钱"];
@@ -60,7 +88,7 @@ async function send(text?: string) {
   busy.value = true;
   await scrollToBottom();
   try {
-    const { data } = await api.post("/chat", { message: content });
+    const { data } = await api.post("/chat", { message: content }, { timeout: AI_TIMEOUT });
     messages.value.push({
       role: "assistant",
       content: data.reply || "…",

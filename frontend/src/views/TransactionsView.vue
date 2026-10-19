@@ -49,6 +49,9 @@ async function load() {
     const { data } = await api.get("/transactions", { params });
     transactions.value = data.items;
     total.value = data.total;
+  } catch (e: any) {
+    // 网络类错误已在拦截器提示过，这里只补业务错误的提示
+    if (!e.__notified) ElMessage.error(e.response?.data?.detail || "加载失败，请稍后重试");
   } finally {
     loading.value = false;
   }
@@ -111,11 +114,16 @@ async function save() {
     return;
   }
   const body = { ...form };
-  if (editingId.value) {
-    await api.put(`/transactions/${editingId.value}`, body);
-  } else {
-    // 同一次提交意图复用同一个 client_token，重复点击不会重复入账
-    await api.post("/transactions", { ...body, client_token: createToken.value });
+  try {
+    if (editingId.value) {
+      await api.put(`/transactions/${editingId.value}`, body);
+    } else {
+      // 同一次提交意图复用同一个 client_token，重复点击不会重复入账
+      await api.post("/transactions", { ...body, client_token: createToken.value });
+    }
+  } catch (e: any) {
+    if (!e.__notified) ElMessage.error(e.response?.data?.detail || "保存失败");
+    return;
   }
   ElMessage.success("保存成功");
   dialogVisible.value = false;

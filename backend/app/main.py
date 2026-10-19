@@ -2,9 +2,10 @@
 
 import logging
 import os
+import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
@@ -71,11 +72,29 @@ app.include_router(chat.router)
 app.include_router(insights.router)
 
 
-# 兜底异常处理：避免把内部错误堆栈直接暴露给用户
+# 请求 ID：每条日志都能定位到具体一次请求。
+# 客户端传了 X-Request-ID 就沿用（方便前后端对着排查），没传就生成一个。
+@app.middleware("http")
+async def attach_request_id(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:12]
+    request.state.request_id = request_id
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+
+# 兜底异常处理：堆栈只进日志，对外只给一句人话 + 请求 ID
 @app.exception_handler(Exception)
-async def unhandled_exception_handler(request, exc):
-    logger.error("未处理异常：%s", exc)
-    return JSONResponse(status_code=500, content={"detail": "服务器内部错误，请稍后重试"})
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    request_id = getattr(request.state, "request_id", "-")
+    # logger.exception 会把 traceback 一起写进日志，方便线上定位
+    logger.exception(
+        "未处理异常 rid=%s %s %s", request_id, request.method, request.url.path
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "服务器内部错误，请稍后重试", "request_id": request_id},
+    )
 
 
 @app.get("/api/health")

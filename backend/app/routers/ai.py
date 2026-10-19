@@ -20,7 +20,7 @@ from ..constants import (
 )
 from ..database import get_db
 from ..deps import get_current_user
-from ..models import Category, Transaction, User, Wallet
+from ..models import Category, Transaction, User, Wallet, alive
 from ..rate_limit import rate_limit
 from ..schemas import (
     AiParseRequest,
@@ -256,7 +256,7 @@ def ai_monthly_summary(
     rows = db.exec(
         select(Transaction, Category).join(Category, Transaction.category_id == Category.id).where(
             Transaction.user_id == current.id,
-            Transaction.deleted_at.is_(None),
+            alive(),
             Transaction.occurred_at.startswith(month),
         )
     ).all()
@@ -312,7 +312,7 @@ def ai_monthly_summary_stream(
         rows = db.exec(
             select(Transaction, Category).join(Category, Transaction.category_id == Category.id).where(
                 Transaction.user_id == current.id,
-                Transaction.deleted_at.is_(None),
+                alive(),
                 Transaction.occurred_at.startswith(month),
             )
         ).all()

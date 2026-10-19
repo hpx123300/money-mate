@@ -4,7 +4,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import type { EChartsOption } from "echarts";
-import api from "../api";
+import api, { AI_TIMEOUT } from "../api";
 import EChart from "../components/EChart.vue";
 import { formatMoney, newClientToken } from "../utils";
 import type { Allowance, Category, MonthSummary, TrendPoint, Wallet } from "../types";
@@ -114,7 +114,7 @@ async function aiParse() {
   }
   aiParsing.value = true;
   try {
-    const { data } = await api.post("/ai/parse-transaction", { text });
+    const { data } = await api.post("/ai/parse-transaction", { text }, { timeout: AI_TIMEOUT });
     // 接口返回 items：一句话可能拆出多笔，逐条确认后一起提交
     aiDrafts.value = (data.items || []).map((it: any) => ({
       ...it,

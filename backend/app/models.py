@@ -3,7 +3,7 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import Column, Index, Numeric
+from sqlalchemy import Column, Index, Numeric, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -53,7 +53,13 @@ class Transaction(SQLModel, table=True):
 
     # 统计接口的查询几乎都是「某用户 + 某时间段」，单列索引只能命中一半条件，
     # 复合索引能一次定位到区间，数据量上来后差别很明显。
-    __table_args__ = (Index("ix_transaction_user_date", "user_id", "occurred_at"),)
+    __table_args__ = (
+        Index("ix_transaction_user_date", "user_id", "occurred_at"),
+        # 幂等的最后一道保险：代码里的「先查再插」在并发下会同时查不到，
+        # 唯一约束把这种情况变成 IntegrityError，由写入侧回查并返回已有记录。
+        # 允许 NULL（不传幂等键的请求不受影响），SQLite / MySQL 都允许多个 NULL。
+        UniqueConstraint("user_id", "client_token", name="uq_transaction_user_token"),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(index=True, foreign_key="user.id")
@@ -73,6 +79,8 @@ class Transaction(SQLModel, table=True):
 
 class Budget(SQLModel, table=True):
     """月度预算：每个用户每个月一条"""
+
+    __table_args__ = (UniqueConstraint("user_id", "month", name="uq_budget_user_month"),)
 
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(index=True, foreign_key="user.id")

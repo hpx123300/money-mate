@@ -34,6 +34,7 @@ from ..models import (
     User,
     UserFact,
     Wallet,
+    alive,
     utcnow,
 )
 from ..rate_limit import rate_limit
@@ -231,7 +232,7 @@ def _tool_query_spending(args: dict, current: User, db: Session) -> dict:
         .join(Category, Transaction.category_id == Category.id)
         .where(
             Transaction.user_id == current.id,
-            Transaction.deleted_at.is_(None),
+            alive(),
             Transaction.occurred_at.startswith(month),
             Transaction.type == type_,
         )
@@ -343,7 +344,7 @@ def _tool_get_status(args: dict, current: User, db: Session) -> dict:
     rows = db.exec(
         select(Transaction).where(
             Transaction.user_id == current.id,
-            Transaction.deleted_at.is_(None),
+            alive(),
             Transaction.occurred_at.startswith(month),
             Transaction.type == "expense",
         )

@@ -14,16 +14,20 @@ const allowance = ref<Allowance | null>(null);
 const allowanceForm = reactive({ amount: 1000, day_of_month: 1 });
 
 async function load() {
-  const [b, a] = await Promise.all([
-    api.get(`/budget/${month.value}`),
-    api.get("/allowance"),
-  ]);
-  budget.value = b.data;
-  form.amount = b.data.amount;
-  allowance.value = a.data;
-  if (a.data.amount > 0) {
-    allowanceForm.amount = a.data.amount;
-    allowanceForm.day_of_month = a.data.day_of_month;
+  try {
+    const [b, a] = await Promise.all([
+      api.get(`/budget/${month.value}`),
+      api.get("/allowance"),
+    ]);
+    budget.value = b.data;
+    form.amount = b.data.amount;
+    allowance.value = a.data;
+    if (a.data.amount > 0) {
+      allowanceForm.amount = a.data.amount;
+      allowanceForm.day_of_month = a.data.day_of_month;
+    }
+  } catch (e: any) {
+    if (!e.__notified) ElMessage.error(e.response?.data?.detail || "加载失败，请稍后重试");
   }
 }
 
@@ -32,7 +36,12 @@ async function save() {
     ElMessage.warning("预算金额必须大于 0");
     return;
   }
-  await api.put(`/budget/${month.value}`, { month: month.value, amount: form.amount });
+  try {
+    await api.put(`/budget/${month.value}`, { month: month.value, amount: form.amount });
+  } catch (e: any) {
+    if (!e.__notified) ElMessage.error(e.response?.data?.detail || "保存失败");
+    return;
+  }
   ElMessage.success("预算已保存");
   load();
 }
@@ -42,10 +51,15 @@ async function saveAllowance() {
     ElMessage.warning("生活费金额必须大于 0");
     return;
   }
-  await api.put("/allowance", {
-    amount: allowanceForm.amount,
-    day_of_month: allowanceForm.day_of_month,
-  });
+  try {
+    await api.put("/allowance", {
+      amount: allowanceForm.amount,
+      day_of_month: allowanceForm.day_of_month,
+    });
+  } catch (e: any) {
+    if (!e.__notified) ElMessage.error(e.response?.data?.detail || "保存失败");
+    return;
+  }
   ElMessage.success("生活费设置已保存");
   load();
 }

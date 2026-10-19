@@ -15,7 +15,7 @@ from sqlmodel import Session, select
 
 from ..database import get_db
 from ..deps import get_current_user
-from ..models import Allowance, Transaction, User
+from ..models import Allowance, Transaction, User, alive
 from ..schemas import AllowanceRead, AllowanceWrite
 
 router = APIRouter(prefix="/api/allowance", tags=["生活费"])
@@ -27,7 +27,7 @@ def _month_spent(db: Session, user_id: int) -> Decimal:
     rows = db.exec(
         select(Transaction).where(
             Transaction.user_id == user_id,
-            Transaction.deleted_at.is_(None),
+            alive(),
             Transaction.type == "expense",
             Transaction.occurred_at.startswith(month),
         )

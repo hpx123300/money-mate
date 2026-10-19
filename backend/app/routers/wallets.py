@@ -7,7 +7,7 @@ from sqlmodel import Session, func, select
 
 from ..database import get_db
 from ..deps import get_current_user
-from ..models import Transaction, User, Wallet
+from ..models import Transaction, User, Wallet, alive
 from ..schemas import WalletCreate, WalletRead
 
 router = APIRouter(prefix="/api/wallets", tags=["钱包"])
@@ -98,7 +98,7 @@ def delete_wallet(
         raise HTTPException(status_code=404, detail="钱包不存在")
     has_tx = db.exec(
         select(Transaction).where(
-            Transaction.wallet_id == wallet_id, Transaction.deleted_at.is_(None)
+            Transaction.wallet_id == wallet_id, alive()
         )
     ).first()
     if has_tx:

@@ -8,12 +8,13 @@ from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response, StreamingResponse
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, func, select
 
 from ..cache import cache
 from ..database import get_db
 from ..deps import get_current_user
-from ..models import Category, Transaction, User, Wallet, utcnow
+from ..models import Category, Transaction, User, Wallet, alive, utcnow
 from ..schemas import (
     ImportResult,
     TransactionCreate,
@@ -75,7 +76,7 @@ def list_transactions(
     """
     page = max(1, page)
     page_size = max(1, min(page_size, 100))
-    conditions = [Transaction.user_id == current.id, Transaction.deleted_at.is_(None)]
+    conditions = [Transaction.user_id == current.id, alive()]
     if month:
         conditions.append(Transaction.occurred_at.startswith(month))
     if type:
@@ -108,6 +109,7 @@ def list_transactions(
 @router.post("", response_model=TransactionRead, status_code=201)
 def create_transaction(
     data: TransactionCreate,
+    response: Response,
     current: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -115,27 +117,34 @@ def create_transaction(
 
     带 client_token 时做幂等：同一个 token 第二次提交直接返回已有记录，
     不会记成两笔。前端双击、网络超时重试都会撞上这种情况。
+
+    幂等分两层：
+    1. 先查一次，命中就直接返回（正常重试走这里，返回 200 而不是 201）；
+    2. 并发下两个请求可能同时查不到，靠 `(user_id, client_token)` 唯一索引兜底，
+       后到的写入抛 IntegrityError，回滚后回查并返回那一笔。
     """
     if data.client_token:
         existing = db.exec(
             select(Transaction).where(
                 Transaction.user_id == current.id,
-                Transaction.deleted_at.is_(None),
+                alive(),
                 Transaction.client_token == data.client_token,
             )
         ).first()
         if existing:
+            # 重放不是「新建成功」，状态码回到 200
+            response.status_code = 200
             return _to_read(existing, _category_names(db, current.id), _wallet_names(db, current.id))
 
     category = db.get(Category, data.category_id)
     if not category or category.user_id != current.id:
-        raise HTTPException(status_code=400, detail="分类不存在")
+        raise HTTPException(status_code=404, detail="分类不存在")
     if category.type != data.type:
-        raise HTTPException(status_code=400, detail="分类类型与流水类型不一致")
+        raise HTTPException(status_code=422, detail="分类类型与流水类型不一致")
     if data.wallet_id:
         wallet = db.get(Wallet, data.wallet_id)
         if not wallet or wallet.user_id != current.id:
-            raise HTTPException(status_code=400, detail="钱包不存在")
+            raise HTTPException(status_code=404, detail="钱包不存在")
     t = Transaction(
         user_id=current.id,
         category_id=data.category_id,
@@ -147,7 +156,26 @@ def create_transaction(
         client_token=data.client_token,
     )
     db.add(t)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # 并发下另一个请求已经用同一个 client_token 写入：回滚，把那一笔返回去。
+        # 用户看到的是「记好了」，不是「冲突」，但也不会出现两笔一样的账。
+        db.rollback()
+        if data.client_token:
+            existing = db.exec(
+                select(Transaction).where(
+                    Transaction.user_id == current.id,
+                    alive(),
+                    Transaction.client_token == data.client_token,
+                )
+            ).first()
+            if existing:
+                response.status_code = 200
+                return _to_read(
+                    existing, _category_names(db, current.id), _wallet_names(db, current.id)
+                )
+        raise HTTPException(status_code=409, detail="写入冲突，请重试")
     db.refresh(t)
     # 数据变了，清掉该用户的统计缓存
     cache.delete_prefix(f"stats:{current.id}:")
@@ -343,7 +371,7 @@ async def import_transactions(
         (t.occurred_at, t.amount, t.note)
         for t in db.exec(
             select(Transaction).where(
-                Transaction.user_id == current.id, Transaction.deleted_at.is_(None)
+                Transaction.user_id == current.id, alive()
             )
         ).all()
     }
@@ -424,7 +452,7 @@ def export_csv(
 ):
     """导出流水为 CSV（用浏览器直接下载，方便做自己的数据分析）。"""
     query = select(Transaction).where(
-        Transaction.user_id == current.id, Transaction.deleted_at.is_(None)
+        Transaction.user_id == current.id, alive()
     )
     if month:
         query = query.where(Transaction.occurred_at.startswith(month))

@@ -135,7 +135,7 @@ OpenClaw / Claude Desktop 这类客户端可以直接调用，不需要再写一
 | 缓存 | Redis（可选） | 未配置时自动退化为进程内缓存与限流 |
 | 前端 | Vue3 · TypeScript · Element Plus · ECharts · Pinia · Vite | 路由懒加载，ECharts 按需注册 |
 | AI | DeepSeek（OpenAI 兼容接口） | JSON mode 结构化输出 + 流式输出 + Function Calling |
-| 工程化 | pytest（48）· Vitest（16）· GitHub Actions · Docker · Render | CI 跑测试与构建，Render Blueprint 一键部署 |
+| 工程化 | pytest（49）· Vitest（16）· GitHub Actions · Docker · Render | CI 跑测试与构建，Render Blueprint 一键部署 |
 
 ## 架构
 
@@ -248,7 +248,7 @@ frontend/
   src/*.test.ts   Vitest 单元测试
 tests/
   conftest.py     测试环境固定（测试库 / 内存缓存 / 不真调模型）
-  test_api.py     38 项接口测试（含对话、多笔、幂等、软删除、注入防护、洞察）
+  test_api.py     39 项接口测试（含对话、多笔、幂等、软删除、注入、洞察、约束兜底）
   test_rate_limit.py  10 项限流测试（fakeredis 真实执行 Lua）
   test_live.py    对运行中服务的冒烟脚本
 scripts/
@@ -353,8 +353,13 @@ Redis 不可用时自动退化为进程内限流，限流组件本身不会成�
 ### 8. 幂等、软删除与索引
 
 - **幂等**：`POST /transactions` 支持 `client_token`。前端在「打开表单 / 解析出草稿」时就生成 uuid，
-  双击或网络重试带同一个值，服务端查到已有记录直接返回，不会记成两笔。
+  双击或网络重试带同一个值，服务端查到已有记录直接返回（**重放返回 200，不是 201**），不会记成两笔。
   记账类应用重复入账是事故级问题，所以 token 的生成时机比字段本身更重要。
+- **并发的兜底在数据层**：应用层的「先查再插」在并发下会同时查不到，于是补了
+  `unique(user_id, client_token)`。后到的写入抛 `IntegrityError`，回滚后回查并返回那一笔——
+  用户看到的仍是「记好了」，但库里不会出现两行。`budget` 的 `(user_id, month)` 同理。
+  迁移见 `migrations/versions/0002_unique_guards.py`，`tests/test_api.py` 里有一条绕过应用层、
+  直接断言约束生效的用例。
 - **软删除**：删除只标记 `deleted_at`，不物理删。读侧所有查询统一带 `deleted_at.is_(None)` 过滤
   （模型层的 `alive()` 提示函数注释写明了原因）——统计悄悄变多这类 bug 不报错、只让数字对不上，
   所以过滤条件放一处、测试盯一遍。删除后再导入同一条账单能重新进来（去重只看未删除的）。
@@ -366,7 +371,7 @@ Redis 不可用时自动退化为进程内限流，限流组件本身不会成�
 ### 测试
 
 ```bash
-# 后端：38 项接口测试 + 10 项限流测试
+# 后端：39 项接口测试 + 10 项限流测试
 pytest tests/ -q
 
 # 前端：金额格式化、幂等键、api 封装、登录 store
@@ -472,9 +477,10 @@ AI 功能的效果可以复现地量化，不是靠感觉说「挺好用」。
 5. **holdout 曾被污染**：19 条 holdout 在 2026-10-18 之前被调参看过，那之前的 100% 只能算拟合结果；
    从下一轮提示词改动起，它们才算真正没见过。
 
-工程侧还有几处已知缺口，写在这里免得看起来像没意识到：没有 E2E 测试，
-越权（拿 A 的 token 读 B 的数据）和并发下的幂等只有接口级用例，没有压测；
-SQLite + Render 免费套餐的数据不持久；Element Plus 全量引入仍占 779KB（gzip 247KB），按需化还没做。
+工程侧还有几处已知缺口，写在这里免得看起来像没意识到：没有 E2E 测试；越权（拿 A 的 token 读 B 的数据）
+只有接口级用例，没有压测；并发幂等有数据层唯一约束兜底，但没有真的多线程压测过；
+SQLite + Render 免费套餐的数据不持久；Element Plus 全量引入仍占 779KB（gzip 247KB），按需化还没做；
+前端 `types.ts` 仍是手写，后端改字段名不会在编译期报错。
 
 ## 接入智能体（MCP）
 

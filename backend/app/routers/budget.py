@@ -3,11 +3,12 @@
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select, func
 
 from ..database import get_db
 from ..deps import get_current_user
-from ..models import Budget, Transaction, User
+from ..models import Budget, Transaction, User, alive
 from ..schemas import BudgetCreate, BudgetRead
 
 router = APIRouter(prefix="/api/budget", tags=["预算"])
@@ -18,7 +19,7 @@ def _spent(db: Session, user_id: int, month: str) -> Decimal:
     total = db.exec(
         select(func.sum(Transaction.amount)).where(
             Transaction.user_id == user_id,
-            Transaction.deleted_at.is_(None),
+            alive(),
             Transaction.type == "expense",
             Transaction.occurred_at.startswith(month),
         )
@@ -52,16 +53,31 @@ def set_budget(
 ):
     """设置/更新某月预算。"""
     if data.month != month:
-        raise HTTPException(status_code=400, detail="请求体月份与路径月份不一致")
+        raise HTTPException(status_code=422, detail="请求体月份与路径月份不一致")
     budget = db.exec(
         select(Budget).where(Budget.user_id == current.id, Budget.month == month)
     ).first()
     if budget:
         budget.amount = data.amount
+        db.add(budget)
+        db.commit()
     else:
         budget = Budget(user_id=current.id, month=month, amount=data.amount)
         db.add(budget)
-    db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            # 并发下另一个请求刚插了同月预算：改成更新它，而不是报冲突。
+            # (user_id, month) 唯一索引保证这里一定能查到唯一一行。
+            db.rollback()
+            budget = db.exec(
+                select(Budget).where(Budget.user_id == current.id, Budget.month == month)
+            ).first()
+            if budget is None:
+                raise HTTPException(status_code=409, detail="预算写入冲突，请重试")
+            budget.amount = data.amount
+            db.add(budget)
+            db.commit()
     db.refresh(budget)
     return BudgetRead(
         month=month,

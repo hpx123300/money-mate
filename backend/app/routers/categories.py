@@ -6,7 +6,7 @@ from sqlmodel import Session, select
 from ..cache import cache
 from ..database import get_db
 from ..deps import get_current_user
-from ..models import Category, Transaction, User
+from ..models import Category, Transaction, User, alive
 from ..schemas import CategoryCreate, CategoryRead
 
 router = APIRouter(prefix="/api/categories", tags=["分类"])
@@ -81,7 +81,7 @@ def update_category(
     if category.type != data.type:
         has_tx = db.exec(
             select(Transaction).where(
-            Transaction.category_id == category_id, Transaction.deleted_at.is_(None)
+            Transaction.category_id == category_id, alive()
         )
         ).first()
         if has_tx:
@@ -108,7 +108,7 @@ def delete_category(
         raise HTTPException(status_code=404, detail="分类不存在")
     if db.exec(
         select(Transaction).where(
-            Transaction.category_id == category_id, Transaction.deleted_at.is_(None)
+            Transaction.category_id == category_id, alive()
         )
     ).first():
         raise HTTPException(status_code=400, detail="该分类下已有流水，不能删除")
