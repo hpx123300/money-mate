@@ -11,13 +11,26 @@ export default defineConfig({
     },
   },
   build: {
-    chunkSizeWarningLimit: 1500, // Element Plus + ECharts 体积较大，调高提示阈值
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        // 把不常变的三方库拆成独立 chunk：业务代码更新时这些文件仍可命中缓存
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (id.includes("echarts") || id.includes("zrender")) return "vendor-echarts";
+          if (id.includes("element-plus")) return "vendor-element";
+          if (id.includes("vue") || id.includes("pinia") || id.includes("axios")) return "vendor-vue";
+          return "vendor";
+        },
+      },
+    },
   },
   test: {
     // api.ts 与登录 store 都依赖 localStorage / window，需要浏览器环境
     environment: "jsdom",
     include: ["src/**/*.test.ts"],
-    // jsdom 环境初始化较重，单进程串行跑更稳，也避免 CI 上多 worker 抢资源
+    // 复用同一个 jsdom 实例：建三次环境要 50s，比跑用例本身还久
+    isolate: false,
     fileParallelism: false,
     maxWorkers: 1,
     testTimeout: 20000,

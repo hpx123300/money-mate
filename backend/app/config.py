@@ -14,8 +14,11 @@ class Settings:
         self.app_env = os.getenv("APP_ENV", "dev")
         self.seed_demo_data = os.getenv("SEED_DEMO_DATA", "").lower() in ("1", "true", "yes", "on")
         self.secret_key = os.getenv("APP_SECRET_KEY", "")
+        self.secret_key_generated = not self.secret_key
         if not self.secret_key:
-            self.secret_key = secrets.token_urlsafe(32)  # 仅开发环境临时生成
+            # 兜底：临时生成。副作用是每次重启签发新密钥，已发出的 token 全部失效，
+            # 所以生产环境必须通过 APP_SECRET_KEY 固定下来（见 .env.example / render.yaml）。
+            self.secret_key = secrets.token_urlsafe(32)
         self.access_token_expire_minutes = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
         # LLM 配置（OpenAI 兼容接口，默认 DeepSeek，可换成通义/OpenAI 只改地址）
         self.llm_api_key = os.getenv("LLM_API_KEY", "")

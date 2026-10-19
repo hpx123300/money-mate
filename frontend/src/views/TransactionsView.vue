@@ -5,6 +5,7 @@ import { onMounted, reactive, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import api from "../api";
 import type { Category, ImportResult, Transaction, Wallet } from "../types";
+import { newClientToken } from "../utils";
 
 const cur = new Date();
 const month = ref(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`);
@@ -24,6 +25,8 @@ const importFile = ref<File | null>(null);
 const importing = ref(false);
 const importResult = ref<ImportResult | null>(null);
 const editingId = ref<number | null>(null);
+// 新增时的幂等键：打开弹窗就定下来，双击/网络重试都用同一个，不会记成两笔
+const createToken = ref("");
 const form = reactive({
   type: "expense" as "income" | "expense",
   category_id: undefined as number | undefined,
@@ -77,6 +80,7 @@ async function loadWallets() {
 const typeCategories = () => categories.value.filter((c) => c.type === form.type);
 function openCreate() {
   editingId.value = null;
+  createToken.value = newClientToken("tx");
   Object.assign(form, {
     type: "expense",
     category_id: undefined,
@@ -110,7 +114,8 @@ async function save() {
   if (editingId.value) {
     await api.put(`/transactions/${editingId.value}`, body);
   } else {
-    await api.post("/transactions", body);
+    // 同一次提交意图复用同一个 client_token，重复点击不会重复入账
+    await api.post("/transactions", { ...body, client_token: createToken.value });
   }
   ElMessage.success("保存成功");
   dialogVisible.value = false;

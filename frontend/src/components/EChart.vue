@@ -1,13 +1,34 @@
-<!-- ECharts 封装：传入 option 自动渲染，窗口变化自动重绘 -->
+<!-- ECharts 封装：按需注册图表与组件，不把整包 echarts 打进首屏 -->
 
 <script setup lang="ts">
-import * as echarts from "echarts";
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import * as echarts from "echarts/core";
+import { BarChart, LineChart, PieChart } from "echarts/charts";
+import {
+  GridComponent,
+  LegendComponent,
+  TitleComponent,
+  TooltipComponent,
+} from "echarts/components";
+import { CanvasRenderer } from "echarts/renderers";
+import type { EChartsOption } from "echarts";
 
-const props = defineProps<{ option: echarts.EChartsOption }>();
+// 只注册项目里真正用到的三种图：占比（饼）、趋势（折线）、年度（柱）
+echarts.use([
+  BarChart,
+  LineChart,
+  PieChart,
+  GridComponent,
+  LegendComponent,
+  TitleComponent,
+  TooltipComponent,
+  CanvasRenderer,
+]);
+
+const props = defineProps<{ option: EChartsOption }>();
 
 const el = ref<HTMLDivElement>();
-let chart: echarts.ECharts | null = null;
+let chart: ReturnType<typeof echarts.init> | null = null;
 
 function render() {
   if (!el.value) return;
@@ -35,4 +56,3 @@ onBeforeUnmount(() => {
 <template>
   <div ref="el" style="width: 100%; height: 340px"></div>
 </template>
-

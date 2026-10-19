@@ -3,11 +3,13 @@ import { useAuthStore } from "./stores/auth";
 
 import LoginView from "./views/LoginView.vue";
 import AppLayout from "./components/AppLayout.vue";
-import DashboardView from "./views/DashboardView.vue";
-import TransactionsView from "./views/TransactionsView.vue";
-import BudgetView from "./views/BudgetView.vue";
-import CategoriesView from "./views/CategoriesView.vue";
-import AnnualReportView from "./views/AnnualReportView.vue";
+
+// 页面按路由懒加载：登录后只下载当前页的代码，年度报告这类低频页不占首屏体积
+const DashboardView = () => import("./views/DashboardView.vue");
+const TransactionsView = () => import("./views/TransactionsView.vue");
+const BudgetView = () => import("./views/BudgetView.vue");
+const CategoriesView = () => import("./views/CategoriesView.vue");
+const AnnualReportView = () => import("./views/AnnualReportView.vue");
 
 const router = createRouter({
   history: createWebHistory(),

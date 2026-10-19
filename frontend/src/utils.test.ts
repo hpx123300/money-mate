@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { formatMoney } from "./utils";
+import { formatMoney, newClientToken } from "./utils";
 
 describe("formatMoney", () => {
   it("普通金额用千分位并保留两位小数", () => {
@@ -29,5 +29,19 @@ describe("formatMoney", () => {
     expect(formatMoney(undefined)).toBe("0.00");
     expect(formatMoney(NaN)).toBe("0.00");
     expect(formatMoney(Infinity)).toBe("0.00");
+  });
+});
+
+describe("newClientToken", () => {
+  it("带前缀，且不超过服务端 64 字符上限", () => {
+    const token = newClientToken("ai");
+    expect(token.startsWith("ai-")).toBe(true);
+    expect(token.length).toBeLessThanOrEqual(64);
+    expect(token.length).toBeGreaterThan(8);
+  });
+
+  it("每次调用都不同（否则两次正常记账会被判成重复）", () => {
+    const set = new Set(Array.from({ length: 50 }, () => newClientToken()));
+    expect(set.size).toBe(50);
   });
 });

@@ -6,7 +6,7 @@ import { ElMessage } from "element-plus";
 import type { EChartsOption } from "echarts";
 import api from "../api";
 import EChart from "../components/EChart.vue";
-import { formatMoney } from "../utils";
+import { formatMoney, newClientToken } from "../utils";
 import type { Allowance, Category, MonthSummary, TrendPoint, Wallet } from "../types";
 
 const cur = new Date();
@@ -28,6 +28,8 @@ interface AiDraft {
   amount: number;
   occurred_at: string;
   note: string;
+  // 解析出草稿时就定下幂等键，用户反复点「确认」也只会记成一笔
+  token: string;
 }
 const aiDrafts = ref<AiDraft[]>([]);
 const aiSummary = ref("");
@@ -114,7 +116,10 @@ async function aiParse() {
   try {
     const { data } = await api.post("/ai/parse-transaction", { text });
     // 接口返回 items：一句话可能拆出多笔，逐条确认后一起提交
-    aiDrafts.value = (data.items || []).map((it: any) => ({ ...it }));
+    aiDrafts.value = (data.items || []).map((it: any) => ({
+      ...it,
+      token: newClientToken("ai"),
+    }));
     aiDraftVisible.value = true;
   } catch (e: any) {
     ElMessage.error(e.response?.data?.detail || "AI 解析失败，请稍后再试");
@@ -132,10 +137,8 @@ async function aiSave() {
   try {
     // 每条带独立 client_token：网络重试不会把同一笔记成两笔
     for (const d of valid) {
-      await api.post("/transactions", {
-        ...d,
-        client_token: `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      });
+      const { token, ...payload } = d;
+      await api.post("/transactions", { ...payload, client_token: token });
     }
     ElMessage.success(valid.length > 1 ? `已记账 ${valid.length} 笔 ✨` : "AI 记账成功 ✨");
     aiDraftVisible.value = false;

@@ -35,6 +35,10 @@ async def lifespan(app: FastAPI):
         logger.info("已初始化演示数据（demo / demo123456）")
     logger.info("启动完成 | 环境: %s", settings.app_env)
     logger.info("数据库: %s", settings.database_url)
+    if settings.secret_key_generated:
+        logger.warning(
+            "APP_SECRET_KEY 未配置：本次启动临时生成密钥，服务重启后所有登录态都会失效"
+        )
     yield
 
 

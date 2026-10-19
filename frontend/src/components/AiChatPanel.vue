@@ -12,6 +12,7 @@
 import { nextTick, ref } from "vue";
 import { ElMessage } from "element-plus";
 import api from "../api";
+import { newClientToken } from "../utils";
 
 interface Draft {
   category_id: number;
@@ -27,6 +28,9 @@ interface Draft {
 interface Action {
   kind: "transaction" | "budget";
   draft: Draft | { month: string; amount: number; previous: number | null };
+  // 收到草稿时就定下幂等键与状态：按钮只能点一次，网络重试也复用同一个 token
+  token?: string;
+  done?: boolean;
 }
 
 interface ChatMsg {
@@ -60,7 +64,7 @@ async function send(text?: string) {
     messages.value.push({
       role: "assistant",
       content: data.reply || "…",
-      actions: data.actions || [],
+      actions: (data.actions || []).map((a: Action) => ({ ...a, token: newClientToken("ai") })),
     });
   } catch (e: any) {
     const detail = e.response?.data?.detail || "AI 暂时不可用，稍后再试";
@@ -72,6 +76,7 @@ async function send(text?: string) {
 }
 
 async function confirmAction(action: Action) {
+  if (action.done) return;
   try {
     if (action.kind === "transaction") {
       const d = action.draft as Draft;
@@ -82,7 +87,7 @@ async function confirmAction(action: Action) {
         type: d.type,
         note: d.note,
         occurred_at: d.occurred_at,
-        client_token: `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        client_token: action.token,
       });
       ElMessage.success("已记账");
     } else {
@@ -90,6 +95,7 @@ async function confirmAction(action: Action) {
       await api.put(`/budget/${d.month}`, { month: d.month, amount: d.amount });
       ElMessage.success("预算已更新");
     }
+    action.done = true;
     // 通知页面刷新：悬浮组件不该直接操作各页面的状态
     window.dispatchEvent(new CustomEvent("youshu:refresh"));
     messages.value.push({ role: "assistant", content: "好了，已经生效。" });
@@ -149,8 +155,14 @@ async function confirmAction(action: Action) {
                 当前是 ¥{{ (a.draft as { previous: number }).previous }}
               </div>
             </template>
-            <el-button type="primary" size="small" style="margin-top: 8px" @click="confirmAction(a)">
-              确认
+            <el-button
+              type="primary"
+              size="small"
+              style="margin-top: 8px"
+              :disabled="a.done"
+              @click="confirmAction(a)"
+            >
+              {{ a.done ? "已确认" : "确认" }}
             </el-button>
           </div>
         </div>

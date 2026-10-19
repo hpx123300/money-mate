@@ -11,3 +11,10 @@ services:
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health
     autoDeploy: true
+    envVars:
+      # 固定 JWT 密钥：不设的话每次重启都会随机生成，已登录用户全部掉线
+      - key: APP_SECRET_KEY
+        generateValue: true
+      # LLM Key 手动在 Render 控制台填，不要写进仓库
+      - key: LLM_API_KEY
+        sync: false

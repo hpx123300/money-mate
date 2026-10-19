@@ -30,7 +30,7 @@
 - **后端**：FastAPI · SQLModel（SQLAlchemy 2.x + Pydantic）· SQLite（配 `DATABASE_URL` 即可切 MySQL）· Redis · Uvicorn
 - **前端**：Vue3 · TypeScript · Element Plus · ECharts · Pinia · Vite
 - **AI**：DeepSeek 大模型（OpenAI 兼容接口），JSON mode 结构化输出 + 流式输出
-- **工程化**：pytest（48 项）· Vitest（14 项）· GitHub Actions CI · Docker 多阶段构建 · Render 部署
+- **工程化**：pytest（48 项）· Vitest（16 项）· GitHub Actions CI · Docker 多阶段构建 · Render 部署
 
 ## 架构
 
