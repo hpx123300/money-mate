@@ -12,6 +12,8 @@ services:
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
+      - key: APP_ENV
+        value: production
       # 固定 JWT 密钥：不设的话每次重启都会随机生成，已登录用户全部掉线
       - key: APP_SECRET_KEY
         generateValue: true

@@ -1048,9 +1048,11 @@ def test_soft_delete_excluded_from_everywhere():
     user = _register()
     headers = _login(user["username"])
     food = next(c for c in client.get("/api/categories", headers=headers).json() if c["name"] == "餐饮")
+    wallet_id = client.get("/api/wallets", headers=headers).json()[0]["id"]
 
     payload = {
         "category_id": food["id"],
+        "wallet_id": wallet_id,
         "amount": 66,
         "type": "expense",
         "note": "火锅",
@@ -1061,6 +1063,9 @@ def test_soft_delete_excluded_from_everywhere():
 
     before_summary = client.get(f"/api/stats/summary?month={CUR_MONTH}", headers=headers).json()
     assert before_summary["total_expense"] >= 66
+    wallet_before = client.get("/api/wallets", headers=headers).json()[0]
+    assert wallet_before["balance"] == -66
+    assert wallet_before["transaction_count"] == 1
 
     # 删除
     r = client.delete(f"/api/transactions/{tid}", headers=headers)
@@ -1076,6 +1081,9 @@ def test_soft_delete_excluded_from_everywhere():
     # 3) 统计不再算它
     after_summary = client.get(f"/api/stats/summary?month={CUR_MONTH}", headers=headers).json()
     assert after_summary["total_expense"] == 0
+    wallet_after = client.get("/api/wallets", headers=headers).json()[0]
+    assert wallet_after["balance"] == 0
+    assert wallet_after["transaction_count"] == 0
     # 4) 预算口径同步
     client.put(f"/api/budget/{CUR_MONTH}", json={"month": CUR_MONTH, "amount": 100}, headers=headers)
     assert client.get(f"/api/budget/{CUR_MONTH}", headers=headers).json()["spent"] == 0

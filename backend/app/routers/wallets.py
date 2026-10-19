@@ -18,17 +18,25 @@ def _read_wallet(db: Session, wallet: Wallet) -> WalletRead:
     income = db.exec(
         select(func.coalesce(func.sum(Transaction.amount), 0)).where(
             Transaction.wallet_id == wallet.id,
+            Transaction.user_id == wallet.user_id,
             Transaction.type == "income",
+            alive(),
         )
     ).one()
     expense = db.exec(
         select(func.coalesce(func.sum(Transaction.amount), 0)).where(
             Transaction.wallet_id == wallet.id,
+            Transaction.user_id == wallet.user_id,
             Transaction.type == "expense",
+            alive(),
         )
     ).one()
     count = db.exec(
-        select(func.count(Transaction.id)).where(Transaction.wallet_id == wallet.id)
+        select(func.count(Transaction.id)).where(
+            Transaction.wallet_id == wallet.id,
+            Transaction.user_id == wallet.user_id,
+            alive(),
+        )
     ).one()
     return WalletRead(
         id=wallet.id,

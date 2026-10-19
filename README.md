@@ -3,10 +3,10 @@
 面向**大学生花钱场景**的全栈 Web 应用。不是让你「记完账」，而是让你「花得明白」：
 一句话记一笔，主动告诉你哪里不对劲，月底知道钱去哪了。
 
-**在线演示**：https://money-mate-8vby.onrender.com ｜ 演示账号 `demo` / `demo123456`
+**演示方式**：本地运行（见「快速开始」），演示账号 `demo` / `demo123456`，空库首次启动会自动种入演示数据。
 
-> 部署在 Render 免费套餐上，15 分钟无访问会休眠，首次打开需等待数秒唤醒；
-> 免费套餐文件系统不持久，重新部署后数据会重置（每次重新种入演示数据）。
+> 仓库保留了 `Dockerfile` 与 `render.yaml`，需要时可以部署到支持 Docker 的平台；
+> 但本项目的演示以本地运行为准，避免线上版本与最新提交不同步。
 
 ---
 
@@ -85,7 +85,7 @@
 - **软删除**：查询统一过滤 `deleted_at`，统计不会因为删除而错乱
 - **限流**：Redis + Lua 实现的滑动窗口，只装在 AI 这类高成本接口上
 - **金额精度**：全程 `Decimal`，不用 float
-- **可量化**：100 条标注集 + 字段级判分脚本，改提示词前后可对比
+- **可量化**：100 条开发集 + 20 条 holdout，字段级判分脚本可对比提示词改动
 - **可部署**：Docker 多阶段构建、GitHub Actions CI、Render Blueprint
 
 ## 使用场景
@@ -136,6 +136,13 @@ OpenClaw / Claude Desktop 这类客户端可以直接调用，不需要再写一
 | 前端 | Vue3 · TypeScript · Element Plus · ECharts · Pinia · Vite | 路由懒加载，ECharts 按需注册 |
 | AI | DeepSeek（OpenAI 兼容接口） | JSON mode 结构化输出 + 流式输出 + Function Calling |
 | 工程化 | pytest（49）· Vitest（16）· GitHub Actions · Docker · Render | CI 跑测试与构建，Render Blueprint 一键部署 |
+
+### 当前验证状态
+
+- 后端：49 项 pytest 通过。
+- 前端：16 项 Vitest、TypeScript 检查和 Vite 生产构建通过。
+- 评测：100 条开发集和 20 条 holdout 验证集均已留档；最新结果见 `data/eval/results/`。
+- 真实大模型评测需要 `LLM_API_KEY` 并会调用外部模型，因此 CI 只运行确定性测试。
 
 ## 架构
 
@@ -257,7 +264,7 @@ scripts/
   dev.sh              本地启动后端（首次自动建 venv）
 data/
   youshu.db       本地 SQLite（gitignore，首次启动自动建表）
-  eval/           100 条标注测试集（判分口径写在文件头）+ 历次评测结果
+  eval/           100 条开发集 + 20 条 holdout（判分口径写在文件头）+ 历次评测结果
 docs/
   项目介绍.md / 技术文档.md / screens/（截图）
 mcp_server.py     MCP Server：把记账能力挂给 OpenClaw 等客户端
@@ -386,13 +393,13 @@ cd frontend && pnpm test      # 或 npm test
 AI 功能的效果可以复现地量化，不是靠感觉说「挺好用」。
 
 ```bash
-# 全量：100 条标注集，字段级准确率 + 分类混淆 + 追问正确率 + 多笔 + 对抗
+# 全量：100 条开发集 + 20 条 holdout，字段级准确率 + 分类混淆 + 追问正确率 + 多笔 + 对抗
 .venv/bin/python scripts/eval_ai_parse.py --save
 
-# 调提示词时只看 dev（81 条）
+# 调提示词时只看 dev（100 条）
 .venv/bin/python scripts/eval_ai_parse.py --split dev
 
-# 改完提示词，再跑一次 holdout（19 条，调参时不要看）
+# 改完提示词，再跑一次 holdout（20 条，调参时不要看）
 .venv/bin/python scripts/eval_ai_parse.py --split holdout --save
 
 # 先跑几条快速验证
@@ -405,13 +412,13 @@ AI 功能的效果可以复现地量化，不是靠感觉说「挺好用」。
 .venv/bin/python scripts/eval_ai_parse.py --baseline data/eval/results/2026-10-16_before.json
 ```
 
-**dev / holdout 分开是刻意的。** 一边调提示词一边看全量，最后那个 100% 只证明「拟合了这 100 条」，
-不证明泛化。所以数据集按 id 固定分桶：81 条 dev 随便看，19 条 holdout 只在改完之后跑一次。
+**dev / holdout 分开是刻意的。** 一边调提示词一边看全量，最后那个 100% 只证明「拟合了开发集」，
+不证明泛化。所以数据集按 id 固定分桶：100 条 dev 随便看，20 条 holdout 只在改完之后跑一次。
 
-一个诚实的说明：这 19 条在 2026-10-18 之前已经被调参看过，属于历史污染。
-从下一轮提示词改动起它们才算「没见过」；要彻底干净，需要补 20 条新用例。
+一个诚实的说明：旧版 19 条 holdout 曾被调参看过，已全部降级为 dev；
+当前 c101-c120 是新补的 20 条 holdout，从提示词下一轮改动起作为泛化验收集。
 
-数据集与判分口径：`data/eval/parse_cases.json`（口径写在文件头部，改数据集要同步改口径）。
+数据集与判分口径：`data/eval/parse_cases.json`（100 条 dev + 20 条 holdout，口径写在文件头部）。
 历次结果：`data/eval/results/`。
 
 三个设计要点：
@@ -472,10 +479,10 @@ AI 功能的效果可以复现地量化，不是靠感觉说「挺好用」。
    这是多笔契约的副作用——宁可多出一条让你删，也不让一条静默丢失；但它确实需要人工修正一次。
 3. **分类表本身缺科目**：「上个月房租 800」会落到「其他支出」。这不是模型判错，
    是我只设了 13 个学生场景分类，没有房租、还款这类科目，属于产品缺口。
-4. **评测只覆盖单轮短句**：100 条都是「一句话一件事」，多轮追问（「那午饭呢」）和上下文省略
-   （「又花了 20」）没有测，这两类目前只能靠线上试。
-5. **holdout 曾被污染**：19 条 holdout 在 2026-10-18 之前被调参看过，那之前的 100% 只能算拟合结果；
-   从下一轮提示词改动起，它们才算真正没见过。
+4. **评测只覆盖单轮短句**：120 条都是「一句话一件事」，多轮追问（「那午饭呢」）和上下文省略
+   （「又花了 20」）没有测，这两类目前只能靠人工场景验证。
+5. **旧 holdout 曾被污染**：19 条旧 holdout 在 2026-10-18 之前被调参看过，已降级到 dev；
+   当前 c101-c120 是新增的 20 条 holdout，下一轮提示词改动后才作为真正的泛化验收集。
 
 工程侧还有几处已知缺口，写在这里免得看起来像没意识到：没有 E2E 测试；越权（拿 A 的 token 读 B 的数据）
 只有接口级用例，没有压测；并发幂等有数据层唯一约束兜底，但没有真的多线程压测过；
@@ -506,19 +513,19 @@ openclaw mcp add youshu --command "python" --args "/绝对路径/mcp_server.py"
 - **只出草稿，不落库。** 和在应用里一样：AI 判断错了，让用户点一下的成本，
   远低于记错一笔再回头改。
 
-## 部署
+## 部署（可选）
 
-仓库根目录的 `render.yaml` 已配好 Render Blueprint（Docker、免费套餐、健康检查、
-`APP_SECRET_KEY` 自动生成），部署步骤见 [docs/技术文档.md](docs/技术文档.md)。
+演示直接本地跑即可。如果要挂到公网，两种方式都可用：直接用 Docker 构建镜像，
+或者用仓库根目录的 `render.yaml`（Render Blueprint：Docker、健康检查、`APP_SECRET_KEY` 自动生成），
+详细步骤见 [docs/技术文档.md](docs/技术文档.md)。
 
 ```bash
-# 也可以自己构建镜像
 docker build -t youshu .
-docker run -p 8000:8000 -e APP_SECRET_KEY=<your-secret> youshu
+docker run -p 8000:8000 -e APP_ENV=production -e APP_SECRET_KEY=<your-secret> youshu
 ```
 
 > 关于数据持久化：本地与 Docker Compose 用 SQLite 文件；Render 免费套餐的文件系统不持久，
-> 所以线上演示的数据会随重新部署重置。需要长期保存就把 `DATABASE_URL` 指向托管数据库
+> 重新部署后数据会重置。需要长期保存就把 `DATABASE_URL` 指向托管数据库
 > （Postgres / MySQL 均可，代码层只改这一处配置）。
 
 ## License

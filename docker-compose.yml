@@ -8,6 +8,7 @@ services:
     ports:
       - "8000:8000"
     environment:
+      APP_ENV: production
       REDIS_URL: redis://redis:6379/0
     volumes:
       # 持久化 SQLite 数据库，容器重建数据不丢
