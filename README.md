@@ -242,8 +242,8 @@ openclaw mcp add youshu --command "python" --args "/绝对路径/mcp_server.py"
 
 ```
 backend/app/
-  main.py         应用入口与路由挂载
-  config.py       环境变量配置
+  main.py         应用入口、路由挂载、前端静态托管（SPA 兜底）
+  config.py       环境变量配置（默认库 data/youshu.db）
   constants.py    默认分类等跨模块常量
   models.py       SQLModel 数据模型
   schemas.py      Pydantic 请求/响应模型
@@ -253,23 +253,33 @@ backend/app/
   rate_limit.py   滑动窗口限流（Redis 原子执行 + 内存兜底）
   llm.py          DeepSeek 调用封装
   seed_demo.py    演示数据生成
-  routers/        auth / wallets / transactions / categories / budget / allowances / stats / ai
-frontend/src/
-  views/          登录 / 仪表盘 / 流水 / 预算 / 分类 / 年度报告
-  stores/         Pinia 状态（登录态持久化）
-  components/     布局与图表组件
-  *.test.ts       Vitest 单元测试
-Dockerfile        唯一的镜像构建文件（render.yaml 与 docker-compose 都指向它）
-scripts/
-  eval_ai_parse.py    AI 一句话记账的字段级评测
-data/eval/
-  parse_cases.json    100 条标注测试集与判分口径
-  results/            历次评测结果（可做前后对比）
+  routers/        auth / wallets / transactions / categories / budget /
+                  allowances / stats / ai / chat / insights
+  static/         前端构建产物（构建时生成，不入库）
+migrations/       Alembic 迁移脚本（versions/ 按序执行）
+frontend/
+  src/views/      登录 / 仪表盘 / 流水 / 预算 / 分类 / 年度报告
+  src/stores/     Pinia 状态（登录态持久化）
+  src/components/ 布局、图表、AI 对话面板
+  src/*.test.ts   Vitest 单元测试
 tests/
   conftest.py     测试环境固定（测试库 / 内存缓存 / 不真调模型）
   test_api.py     38 项接口测试（含对话、多笔、幂等、软删除、注入防护、洞察）
-  test_rate_limit.py  10 项限流测试
+  test_rate_limit.py  10 项限流测试（fakeredis 真实执行 Lua）
   test_live.py    对运行中服务的冒烟脚本
+scripts/
+  eval_ai_parse.py    AI 一句话记账的字段级评测
+  build-frontend.sh   构建前端并同步到 backend/app/static
+  dev.sh              本地启动后端（首次自动建 venv）
+data/
+  youshu.db       本地 SQLite（gitignore，首次启动自动建表）
+  eval/           100 条标注测试集（判分口径写在文件头）+ 历次评测结果
+docs/
+  项目介绍.md / 技术文档.md / screens/（截图）
+mcp_server.py     MCP Server：把记账能力挂给 OpenClaw 等客户端
+start.command     macOS 一键启动（建 venv → 迁移 → 起服务 → 开浏览器）
+Dockerfile        唯一的镜像构建文件（render.yaml 与 docker-compose 都指向它）
+alembic.ini       迁移配置（启动前 alembic upgrade head）
 ```
 
 ## License
